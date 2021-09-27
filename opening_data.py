@@ -197,7 +197,9 @@ def df_of_models(models, model_names, flare_class=None):
         df_dict[model_name] = desired_forecast
 
     df_out = pd.DataFrame(df_dict) # create dataframe
-
+    
+    df_out = df_out.set_index('Date') # set dates as indices
+    
     return df_out
 
 # Now that we have the dataframe containing all models, lets use that in a
@@ -232,19 +234,15 @@ def ensemble_average(models, model_names, flare_class=None):
         Average prediction of all models.
 
     """
-    all_models = df_of_models(models, model_names, flare_class) # df of models
+    # generate df of models
+    all_models = df_of_models(models, model_names, flare_class)
 
     headers = list(all_models) # the column headers of the df
 
-    # remove date column, cant take an average using this
-    headers.remove("Date")
-
-    # make copy of original to surpress SettingWithCopyWarning.
-    new_df = all_models[headers].copy()
-
-    new_df[new_df < 0] = 0  # map any negative values to 0
-
-    ensemble_av = new_df[headers].sum(axis=1) / len(headers)
+    all_models[all_models < 0] = 0  # map any negative values to 0
+    
+    # now compute average of each forecast
+    ensemble_av = all_models.sum(axis=1) / len(headers)
 
     return ensemble_av
 
