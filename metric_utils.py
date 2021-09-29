@@ -81,7 +81,7 @@ def calculate_bss(true_vals, prob_vals):
 ############## FORECAST METRIC PLOTS #################
 
 
-def plot_roc_curve(true_vals, prob_vals, ax=None, title=None):
+def plot_roc_curve(true_vals, prob_vals, ax=None):
     """
     Plot the receiver operating characteristic (ROC) curve
     Parameters
@@ -100,7 +100,6 @@ def plot_roc_curve(true_vals, prob_vals, ax=None, title=None):
     """
     fpr, tpr, _ = metrics.roc_curve(true_vals, prob_vals)
     auc_mcstat = metrics.auc(fpr, tpr)
-    climatology = np.mean(true_vals)
     
     if ax is None:
         fig, ax = plt.subplots()
@@ -110,17 +109,17 @@ def plot_roc_curve(true_vals, prob_vals, ax=None, title=None):
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
     ax.legend(loc="lower right")
-    if title is None:
-        ax.set_title("ROC Curve")
-    else:
-        ax.set_title(title)
-    plt.show()
+    plt.tight_layout()
+    return ax
 
 
 
-def plot_reliability_curve(true_vals, pred_vals, n_bins=10, title=None):
+
+def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True):
     """
     Plot the reliability curve (also known as a calibration curve).
+    Adjusted to replicate plots from Leka et al 2019 [1].
+    
     Parameters
     ----------
     true_vals : `~np.array`
@@ -129,63 +128,114 @@ def plot_reliability_curve(true_vals, pred_vals, n_bins=10, title=None):
         The predicted Y values from the model.
     n_bins : `int`, optional, default 10.
         Number of bins to discretize the [0, 1] interval (input to sklearn `calibration_curve` function).
+    laplace : `bool`, optional, default is True.
+        Whether or not to use Laplace's rule of succession when considering
+        fraction of positives [1]. Useful for when there is a small amount of
+        data.
     
     Returns
     -------
     Plots the reliability diagram
     ax : ~`matplotlib axes`
     
+    References
+    ----------
+    [1] Leka, K.D. et al., 2019. A comparison of flare forecasting
+        methods. II. Benchmarks, metrics, and performance results for
+        operational solar flare forecasting systems. The Astrophysical
+        Journal Supplement Series, 243(2), p.36.
+    [2] Wheatland, M.S., 2005. A statistical solar flare forecast
+        method. Space Weather, 3(7).
+
     """
 
-    fraction_of_positives, mean_predicted_value = calibration_curve(true_vals, pred_vals, n_bins=n_bins)
+    if laplace:
+        # do what sklearn.calibration.calibration_curve() does,
+        # but implement laplace's rule of succession when calculating
+        # fraction of positives.
+
+        # generate bins of uniform width
+        bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
+
+        # assign model predictions to each bin, -1 since it corresponds
+        # to the indices.
+        binids = np.digitize(pred_vals, bins) - 1
+
+        # sum up the probabilities in each bin, for eventual average
+        bin_sums = np.bincount(binids, weights=pred_vals, minlength=len(bins))
+
+        # sum up number of flare events in each probability bin
+        bin_true = np.bincount(binids, weights=true_vals, minlength=len(bins))
+
+        # sum up number of events in each bin
+        bin_total = np.bincount(binids, minlength=len(bins))
+
+        # delete any bins where there are no flare events, since want
+        # to replicate benchmark discussed in Leka 2019 paper
+        zeros = np.where(bin_true == 0)
+
+        # delete these indices from the arrays
+        bin_true = np.delete(bin_true, zeros)
+        bin_sums = np.delete(bin_sums, zeros)
+        bin_total = np.delete(bin_total, zeros)
+
+        # indices where there are a nonzero number of events in the bins
+        nonzero = bin_total != 0
+
+        # laplace's rule of succession for the probability
+        fraction_of_positives = (bin_true[nonzero] + 1) / (bin_total[nonzero] + 2)
+        
+        # mean bin probability
+        mean_predicted_value = bin_sums[nonzero] / bin_total[nonzero]
+
+        # uncertainty in the fraction of positives
+        true_err = np.sqrt(
+            (fraction_of_positives*(1-fraction_of_positives)) / (bin_total[nonzero] + 3)
+            )
+
+    else:
+        fraction_of_positives, mean_predicted_value = calibration_curve(true_vals,
+                                                                    pred_vals,
+                                                                    n_bins=n_bins)
+        # dont plot 0, to replicate plots benchmark from Leka 2019
+        zeros = np.where(fraction_of_positives == 0)
+
+        fraction_of_positives = np.delete(fraction_of_positives, zeros)
+        mean_predicted_value = np.delete(mean_predicted_value, zeros)
+        
     climatology = np.mean(true_vals)
 
-    x = np.linspace(0,1,2)
-    m = 0.5
-    
-    no_skill = m * (x-climatology) + climatology
-     
+    # no skill line
+    x = [0,1]
+    no_skill = 0.5 * (x-climatology) + climatology
+         
     fig = plt.figure(figsize=(6,6))
     gs1 = fig.add_gridspec(nrows=4, ncols=1)
     ax1 = fig.add_subplot(gs1[0:3, 0])
     ax2 = fig.add_subplot(gs1[3, 0], sharex=ax1)
 
-    hist = ax2.hist(pred_vals, range=(0, 1), bins=n_bins, 
-                    histtype="step", lw=2)
-    ax2.set_xlabel("Mean predicted value")
-    ax2.set_ylabel("# events")
-    
-    n_bin = hist[0]
-    
-    # fop_err = np.sqrt(fraction_of_positives*(1-fraction_of_positives) / (n_bin+3))
-    
-
     ax1.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-    ax1.plot(mean_predicted_value, fraction_of_positives, "s-")
+    if laplace:
+        ax1.errorbar(mean_predicted_value, fraction_of_positives, fmt="s-",
+                     yerr=true_err, capthick=1, elinewidth=1, capsize=3)
+    else:
+        ax1.plot(mean_predicted_value, fraction_of_positives, "s-")
+
     ax1.plot(x, no_skill, "k", ls="--", lw=0.5, label="No-skill")
-    
     ax1.set_ylabel("Fraction of positives")
     ax1.tick_params(which="both", labelbottom=False)
     ax1.axhline(climatology, color="grey", label="climatology")
-    ax1.legend()
-    if title is None:
-        ax1.set_title("Reliability Curve")
-    else:
-        ax1.set_title(title)
+    ax1.legend(loc="upper left")
 
+    ax2.hist(pred_vals, range=(0, 1), bins=n_bins,
+                    histtype="step", lw=2)
+    ax2.set_xlabel("Mean predicted value")
+    ax2.set_ylabel("# events")
 
-    
-    # Whetland 2005
-    # if there are R days with at least one
-    # event out of a total of S days, then the estimate for the
-    # probability is p = (R + 1)/(S + 2) (Laplace’s rule of succession), 
-    # and the associated uncertainty is [p(1−p)/(S + 3)]1/2
-    
-    
-    
-    plt.tight_layout()
     plt.subplots_adjust(hspace=0.05)
-    plt.show()
+    plt.tight_layout()
+
+    return ax1, ax2
 
 
 def plot_feature_importance(mdl, features, top=None, title="Feature importance"):
