@@ -60,6 +60,11 @@ M_events_from_2016_index = np.where(all_M_events['Date'].str.contains('2016'))[0
 C_events = all_C_events.iloc[C_events_from_2016_index:].loc[:, "Event"].values
 M_events = all_M_events.iloc[M_events_from_2016_index:].loc[:, "Event"].values
 
+observations = pd.DataFrame({'Date': model_csv_list[0]['VALID_DATE'],
+                            'M' : M_events,
+                             'C': C_events})
+
+observations.set_index('Date', inplace=True)
 
 # ==============================================================
 # Now let's get the models
