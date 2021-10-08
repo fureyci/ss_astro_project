@@ -13,6 +13,9 @@ As of now, I have been getting used to the type of data I will be working with. 
 ##### 29/09/2021 Update
 Upon further reading of Leka et al., 2019, I found out that when calculating the fraction of positives for the reliability curves, Laplace's rule of succession is used (Wheatland, 2005). This has been implemented in `metric_utils.py` by updating the function `plot_reliability_curve()`. Now that any model can be compared to the benchmark, the next goal is to update `ensemble.py`. 
 
+##### 08/10/2021 Update
+Updated `ensemble.py` by including a constrained linear combination weighting scheme. Still need to debug the unconstrained linear combination weighting scheme. Also added a file `ens_test.py` to test the functionality of `ensemble.py`. Still need to debug the unconstrained linear combination weighting scheme, as well as some other things.
+
 ###### References 
 * Leka, K.D., Park, S.H., Kusano, K., Andries, J., Barnes, G., Bingham, S., Bloomfield, D.S., McCloskey, A.E., Delouille, V., Falconer, D. and Gallagher, P.T., 2019. A comparison of flare forecasting methods. II. Benchmarks, metrics, and performance results for operational solar flare forecasting systems. The Astrophysical Journal Supplement Series, 243(2), p.36.
 
