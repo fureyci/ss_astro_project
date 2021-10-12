@@ -76,12 +76,36 @@ def calculate_bss(true_vals, prob_vals):
     BSS = 1 - bs/bs_clim
     return BSS
 
+def calculate_fb_threshold(true_vals, prob_vals, thresh):
+    """
+    Calculate frequency bias (fb) for a predictive model where
+    dichotomous (yes/no) forecasts are produced for a probabilistic
+    model if the prediction is either above or below thresh.
 
+    Parameters
+    ----------
+    true_values: `~np.array`
+        the true values.
+    prob_vals: `~np.array`
+        the predicted value probabilities.
+    thresh : `~float`
+        the threshold value to take for binary event (i.e. values above this
+        threshold are taken to be 1 (flare) and those below as 0 (no flare)).
+
+    Returns
+    -------
+    fb: `float`
+        the frequency bias.
+
+    """
+    pred_thresh = [1 if x>=thresh else 0 for x in prob_vals]
+    tn, fp, fn, tp = metrics.confusion_matrix(true_vals, pred_thresh).ravel()
+    fb = (tp + fp) / (tp + fn) # frequency bias
+    return fb
 
 ############## FORECAST METRIC PLOTS #################
 
-
-def plot_roc_curve(true_vals, prob_vals, ax=None):
+def plot_roc_curve(true_vals, prob_vals, ax=None, fmt=None):
     """
     Plot the receiver operating characteristic (ROC) curve
     Parameters
@@ -92,30 +116,41 @@ def plot_roc_curve(true_vals, prob_vals, ax=None):
         The predicted probability values of the model.
     ax : `~matplotlib.axes.Axes`, optional
         If provided the image will be plotted on the given axes.
+    fmt : `str`, optional, default is None.
+        Marker format of plot. If None, plots square. Used for
+        ensemble.py, plots a different format depending on desired
+        weighting scheme.
     
     Returns
     -------
     Plots the ROC curve
     ax : ~`matplotlib axes`
     """
+    
     fpr, tpr, _ = metrics.roc_curve(true_vals, prob_vals)
     auc_mcstat = metrics.auc(fpr, tpr)
     
+    fs = 'x-large' # fontsize of axis labels
+    
     if ax is None:
         fig, ax = plt.subplots()
+        fs = 'medium' # fontsize of axis labels
 
-    ax.plot(fpr, tpr, label="(AUC = {:.2f})".format(auc_mcstat))
+    if fmt == None:
+        ax.plot(fpr, tpr, label="(AUC = {:.3f})".format(auc_mcstat))
+    else:
+        ax.plot(fpr, tpr, fmt+"-", ms=10, mfc='none',
+                label="(AUC = {:.3f})".format(auc_mcstat))
+        
     ax.plot([0, 1], [0, 1], color='grey', linestyle='--')
-    ax.set_xlabel("False Positive Rate")
-    ax.set_ylabel("True Positive Rate")
+    ax.set_xlabel("False Positive Rate", size=fs)
+    ax.set_ylabel("True Positive Rate", size=fs)
     ax.legend(loc="lower right")
     plt.tight_layout()
     return ax
 
-
-
-
-def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True):
+def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True,
+                           fmt=None, axes=None):
     """
     Plot the reliability curve (also known as a calibration curve).
     Adjusted to replicate plots from Leka et al 2019 [1].
@@ -127,16 +162,28 @@ def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True):
     pred_vals : `~np.array`
         The predicted Y values from the model.
     n_bins : `int`, optional, default 10.
-        Number of bins to discretize the [0, 1] interval (input to sklearn `calibration_curve` function).
+        Number of bins to discretize the [0, 1] interval (input to sklearn
+        `calibration_curve` function).
     laplace : `bool`, optional, default is True.
         Whether or not to use Laplace's rule of succession when considering
         fraction of positives [1]. Useful for when there is a small amount of
         data.
+    fmt : `str`, optional, default is None.
+        Marker format of plot. If None, plots square. Used for
+        ensemble.py, plots a different format depending on desired
+        weighting scheme.
+    axes : `tuple of matplotlib.axes.Axes`, optional
+        If provided the image will be plotted on the given axes.
+        Expected form:
+            (reliability diagram axis, histogram axis),
+        where ratio height of reliability diagram and histogram
+        axes is 3:1.
     
     Returns
     -------
     Plots the reliability diagram
-    ax : ~`matplotlib axes`
+    ax1, ax2 : ~`matplotlib axes`
+        reliability diagram axis and histogram axis, respectively.
     
     References
     ----------
@@ -209,31 +256,55 @@ def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True):
     x = [0,1]
     no_skill = 0.5 * (x-climatology) + climatology
          
-    fig = plt.figure(figsize=(6,6))
-    gs1 = fig.add_gridspec(nrows=4, ncols=1)
-    ax1 = fig.add_subplot(gs1[0:3, 0])
-    ax2 = fig.add_subplot(gs1[3, 0], sharex=ax1)
+    if axes is None:
+        fig = plt.figure(figsize=(6,6))
+        gs1 = fig.add_gridspec(nrows=4, ncols=1)
+        ax1 = fig.add_subplot(gs1[0:3, 0])
+        ax2 = fig.add_subplot(gs1[3, 0], sharex=ax1)
+    else:
+        ax1 = axes[0]
+        ax2 = axes[1]
 
     ax1.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-    if laplace:
-        ax1.errorbar(mean_predicted_value, fraction_of_positives, fmt="s-",
-                     yerr=true_err, capthick=1, elinewidth=1, capsize=3)
+    
+    if fmt == None:
+        if laplace:
+            ax1.errorbar(mean_predicted_value, fraction_of_positives, fmt="s-",
+                         yerr=true_err, capthick=1, elinewidth=1, capsize=3)
+        else:
+            ax1.plot(mean_predicted_value, fraction_of_positives, "s-")
     else:
-        ax1.plot(mean_predicted_value, fraction_of_positives, "s-")
+        if laplace:
+            ax1.errorbar(mean_predicted_value, fraction_of_positives,
+                         fmt=fmt, ls='-', ms = 10, mfc='none',
+                         yerr=true_err, capthick=1, elinewidth=1, capsize=3)
+        else:
+            ax1.plot(mean_predicted_value, fraction_of_positives,
+                     fmt=fmt, ls='-', mfc='none')
 
-    ax1.plot(x, no_skill, "k", ls="--", lw=0.5, label="No-skill")
-    ax1.set_ylabel("Fraction of positives")
+    ax1.plot(x, no_skill, "k",
+             ls=(0, (5, 10)),
+             lw=0.5, label="No-skill")
+    
     ax1.tick_params(which="both", labelbottom=False)
-    ax1.axhline(climatology, color="grey", label="climatology")
+    ax1.plot([0,1], [climatology,climatology],
+             color="grey", label="climatology")
     ax1.legend(loc="upper left")
 
     ax2.hist(pred_vals, range=(0, 1), bins=n_bins,
                     histtype="step", lw=2)
-    ax2.set_xlabel("Mean predicted value")
-    ax2.set_ylabel("# events")
+    
+    if axes is None:
+        fs = 'medium' # font size for labels
+    else:
+        fs = 'x-large'
+    ax1.set_ylabel("Observed Probability", size=fs)
+    ax2.set_xlabel("Forecast Probability", size=fs)
+    ax2.set_ylabel("# events", size=fs)
 
     plt.subplots_adjust(hspace=0.05)
-    plt.tight_layout()
+    if axes is None:
+        plt.tight_layout()
 
     return ax1, ax2
 
