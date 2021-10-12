@@ -3,12 +3,15 @@
 Created on Mon Sep 20 16:49:57 2021
 
 @author: fureyci
-Ensemble space weather forecast.
+Ensemble model for solar flare forecasting.
 
 To Do:
 Fix unconstrained LC.
-Look at changing how data is loaded.
-Include titles for plots.
+Look at changing how data is loaded so real time
+data can be used.
+
+Takes a while to load. To make it run in less time,
+set REPITITIONS = 0 (line 389)
 
 Example test included in ens_test.py.
 """
@@ -25,6 +28,10 @@ class Ensemble:
     the desired flare event to be forecasted (desired_forecasts), the
     desired weighting scheme to be used (desired_weighting), and the
     desired metric to be optimised (desired_metric).
+    
+    If no desired flare class, weighting scheme, or metric to 
+    optimise are passed, an average ensemble is created that 
+    will forecast M1+ class flares.
 
     Parameters
     ----------
@@ -106,6 +113,9 @@ class Ensemble:
 
         # map any negative values to 0
         self.df_of_models[self.df_of_models < 0] = 0
+        
+        # climatololgy (mean of observations)
+        self.climatology = np.mean(self._obs_vals)
 
         # calculate ensemble prediction according to desired weighting
         # scheme.
@@ -118,15 +128,20 @@ class Ensemble:
         elif self.desired_weighting == "constrained":
             self.forecast, self.weights = self._linear_combo(constrained=True)
 
-
-       # elif self.desired_weighting == "unconstrained":
-            # *NEED TO DEBUG ULC*
-            # pass
+        elif self.desired_weighting == "unconstrained":
+            # since unconstrained LC involves climatology in
+            # calculation, will append column of climatology to the
+            # dataframe of models here, as it is only needed in this
+            # case.
+            self.df_of_models['Climatology'] = np.full(
+                self._obs_vals.shape,
+                self.climatology
+                )
+            self.forecast, self.weights = self._linear_combo(constrained=False)
 
         else:
             raise ValueError("desired_weighting must be one of: 'average,'"
-                             " 'history,' 'constrained'. 'unconstrained' "
-                             " still needs debugging.")
+                             " 'history,' 'constrained,' or 'unconstrained.'")
 
     def _models_df(self):
         """ Generate pandas dataframe whose columns represent the
@@ -376,14 +391,14 @@ class Ensemble:
 
         # number of times to repeat optimisation process, same as
         # Geurra et al. 2020.
-        REPITITIONS = 50
+        REPITITIONS = 500
 
         if constrained is True:
             # # initial weights, random values between 0 and 1
             # initial_weights = np.random.rand(number_of_models)
 
             # to be used as "jac" in constraints
-            weights = np.ones(number_of_models)
+            jac = np.ones(number_of_models)
 
             # define bounds
             bounds = np.full((number_of_models,2), (0,1))
@@ -395,19 +410,31 @@ class Ensemble:
                 )
 
         else:
-            # *NEED TO DEBUG ULC*
-            pass
+            # jacobian of constraint function.
+            # +1 to account for the climatology.
+            jac = np.ones(number_of_models+1)
+
+            # set bounds, +1 to account for the climatology
+            bounds = np.full((number_of_models+1,2), (-1,1))
+            
+            # set up array of zeros that will store the optimised
+            # weights from each repitition.
+            # +1 to account for the climatology.
+            accumulated_weights = np.zeros(
+                (REPITITIONS, number_of_models+1)
+                )
 
         # Now define the constraints:
         # "type": constraint type, "eq" for equality, meaning that "fun"
         #   must result to zero.
         # "fun" : function defining the constraint. That is, all of the
         #   weights have to sum up to 1, since "type"="eq".
-        # "jac" : jacobion of "fun"
+        # "jac" : jacobion of "fun." Simply array of 1s, since
+        # (d/dw_i)w_i = 1.
 
         consts = ({"type": "eq",
-                    "fun": lambda ws: np.sum(ws) - 1, # weights add to 0
-                    "jac": lambda ws: weights})
+                    "fun": lambda ws: np.sum(ws) - 1, # weights sum to 1
+                    "jac": lambda ws: jac})
 
         # repeat optimisation procedure to account for sensitivity of
         # the results of the optimised weights to the choice of the
@@ -418,8 +445,9 @@ class Ensemble:
                 initial_weights = np.random.rand(number_of_models)
 
             else:
-                # *NEED TO DEBUG ULC*
-                pass
+                # initial weights, random values between -1 and 1,
+                # +1 to account for climatology weight
+                initial_weights = np.random.uniform(-1, 1, number_of_models+1)
 
             result = minimize(_optimise_funct,
                               initial_weights,
@@ -436,28 +464,27 @@ class Ensemble:
 
             # store this set of weights, and repeat.
             accumulated_weights[i] = result.x
-
-        if constrained is True:
-            optimised_weights = np.sum(
-                accumulated_weights, axis=0
-                ) / float(REPITITIONS) # average weights
-
-            # calculate the ensemble prediction with the optimised
-            # weights.
-            ensemble_prediction = np.sum(
+        
+        # now calculate the average of each weight to get a true
+        # global minimum. axis=0 to take the mean across the 
+        # columns (ie every repitition)
+        optimised_weights = np.mean(
+                accumulated_weights,
+                axis=0
+                )
+        
+        # calculate the ensemble prediction.
+        ensemble_prediction = np.sum(
                 optimised_weights * self.df_of_models.values,
                 axis=1
                 )
-        else:
-            # *NEED TO DEBUG ULC*
-            pass
 
         # map any negative values to 0
         ensemble_prediction[ensemble_prediction < 0] = 0
 
         return ensemble_prediction, optimised_weights
 
-    def visualise_performance(self, which="both"):
+    def visualise_performance(self, which="both", ax=None, axes=None):
         """
         Visualise how the ensemble performed through either a
         reiliability diagram, ROC plot, or both, depending on the value
@@ -472,26 +499,70 @@ class Ensemble:
             | "reliability" : plot reliability diagram only.
             | "ROC" : plot ROC plot only.
             | "both" : plot both reliability diagram and ROC plot.
+            
+        ax : `~matplotlib.axes.Axes`, optional
+            If provided the ROC curve will be plotted on the given
+            axes.
+                        
+        axes : `tuple of matplotlib.axes.Axes`, optional
+            If provided the reliability diagram and histrogram will be
+            plotted on the given axes. Expected form: 
+                (reliability diagram axis, histogram axis),
+            where ratio height of reliability diagram and histogram
+            axes is 3:1.
 
         Returns
         -------
-        Plots the reliability diagram
-        ax : ~`matplotlib axes`
+        Plots the desired diagram.
+        ax : ~`matplotlib axes` if which=="ROC"
+        
+        ax1, ax2 : ~`matplotlib axes` if which=="reliability"
+        
+        rel_ax, hist_ax, roc_ax : ~`matplotlib axes` if which=="both"
 
         """
+        
+        # use different marker formats depending on ensemble type.
+        formats = {
+            "average": 'o',
+            "history": 's',
+            "constrained": '^',
+            "unconstrained": 'P'}
+        
         if which == "reliability":
-            ax1, ax2 = plot_reliability_curve(self._obs_vals,
-                                              self.forecast,
-                                              n_bins=20)
-            return ax1, ax2
+            if axes is None:
+                ax1, ax2 = plot_reliability_curve(self._obs_vals,
+                                                  self.forecast,
+                                                  n_bins=20,
+                                                  fmt = formats[self.desired_weighting]
+                                                  )
+                return ax1, ax2
+
+            else:
+                ax1, ax2 = plot_reliability_curve(self._obs_vals,
+                                                  self.forecast,
+                                                  n_bins=20,
+                                                  fmt = formats[self.desired_weighting],
+                                                  axes=axes
+                                                  )
+                return ax1, ax2
 
         elif which == "ROC":
-            roc_ax = plot_roc_curve(self._obs_vals, self.forecast)
-            return roc_ax
+            if ax is None:
+                ax = plot_roc_curve(self._obs_vals, self.forecast,
+                                    fmt = formats[self.desired_weighting])
+            else:
+                ax = plot_roc_curve(self._obs_vals, self.forecast,
+                                    fmt = formats[self.desired_weighting],
+                                    ax=ax)
+            return ax
 
         elif which == "both":
-            ax1, ax2 = plot_reliability_curve(self._obs_vals,
+            rel_ax, hist_ax = plot_reliability_curve(self._obs_vals,
                                               self.forecast,
-                                              n_bins=20)
-            ax3 = plot_roc_curve(self._obs_vals, self.forecast)
-            return ax1, ax2, ax3
+                                              n_bins=20,
+                                              fmt = formats[self.desired_weighting]
+                                              )
+            roc_ax = plot_roc_curve(self._obs_vals, self.forecast,
+                                 fmt = formats[self.desired_weighting])
+            return rel_ax, hist_ax, roc_ax
