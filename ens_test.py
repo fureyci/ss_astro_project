@@ -6,7 +6,7 @@ Created on Wed Sep 29 15:57:22 2021
 
 Code to test functionality of ensemble.py.
 
-Prompts user for input into the console to chode desired flare
+Prompts user for input into the console to chose desired flare
 forecast, desired weighting scheme, and desired metric to
 optimise, if the weighting scheme is constrained linear
 combination.
@@ -17,8 +17,7 @@ from ensemble import Ensemble
 
 def user_input():
     valid_forecasts = ["C-only", "C1+", "M-only", "M1+"]
-    # valid_methods = ["average", "history", "constrained", "unconstrained"]
-    valid_methods = ["average", "history", "constrained"]
+    valid_methods = ["average", "history", "constrained", "unconstrained"]
     valid_weights = ["brier", "LCC", "MAE"]
 
     print("What flare class would you like to forecast?\n"
@@ -37,8 +36,7 @@ def user_input():
 
     print("\nWhat weighting scheme would you like to use?\n"
           "Choose one of \"average\", \"history\", "
-          "or \"constrained\".\n\"unconstrained\" still needs "
-          "debugging.")
+          "\"constrained\" or \"unconstrained\".")
 
     weighting = input("Enter desired scheme: ")
 
@@ -64,9 +62,8 @@ def user_input():
 
         else:
             # ensure weighting is valid
-            print("\nPlease choose one of \"average\", \"history\","
-                  "or \"constrained\". \"unconstrained\" still needs "
-                  "debugging.")
+            print("\nPlease choose one of \"average\", \"history\", "
+                  "\"constrained\" or \"unconstrained\".")
             weighting = input("Enter desired scheme: ")
 
 
@@ -79,8 +76,6 @@ test = Ensemble(model_csv_list, model_names_only, observations,
                 desired_forecast=forecast,
                 desired_metric=metric,
                 desired_weighting=weighting)
-
 print("Done. Now plotting reliability diagram and ROC curve...")
 
-test.visualise_performance()
-
+test.visualise_performance(which="both")
