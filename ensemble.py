@@ -380,34 +380,34 @@ class Ensemble:
                                 )
 
             if self.desired_metric == "REL":
-                # generate bins of uniform width
+                # Generate bins of uniform width.
                 bins = np.linspace(0., 1. + 1e-8, 21)
 
-                # assign model predictions to each bin, -1 since it corresponds
+                # Assign model predictions to each bin, -1 since it corresponds
                 # to the indices.
                 binids = np.digitize(en_forecast_to_optimise, bins) - 1
 
-                # sum up the probabilities in each bin, for eventual average
+                # Sum up the probabilities in each bin, for eventual average.
                 bin_sums = np.bincount(binids, weights=en_forecast_to_optimise,
                                        minlength=len(bins))
 
-                # sum up number of flare events in each probability bin
+                # Sum up number of flare events in each probability bin.
                 bin_true = np.bincount(binids, weights=self.events,
                                        minlength=len(bins))
 
-                # sum up number of events in each bin
+                # Sum up number of events in each bin.
                 bin_total = np.bincount(binids, minlength=len(bins))
 
-                # delete any bins where there are no flare events, since want
-                # to replicate benchmark discussed in Leka 2019 paper
+                # Delete any bins where there are no flare events, since want
+                # to replicate benchmark discussed in Leka 2019 paper.
                 zeros = np.where(bin_true == 0)
 
-                # delete these indices from the arrays
+                # Delete these indices from the arrays
                 bin_true = np.delete(bin_true, zeros)
                 bin_sums = np.delete(bin_sums, zeros)
                 bin_total = np.delete(bin_total, zeros)
 
-                # indices where there are a nonzero number of events in the bins
+                # Indices where there are a nonzero number of events in the bins.
                 nonzero = bin_total != 0
 
                 mean_predicted_value = bin_sums[nonzero] / bin_total[nonzero]
