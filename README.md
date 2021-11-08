@@ -16,6 +16,9 @@ Upon further reading of Leka et al., 2019, I found out that when calculating the
 ##### 08/10/2021 Update
 Updated `ensemble.py` by including a constrained linear combination weighting scheme. Still need to debug the unconstrained linear combination weighting scheme. Also added a file `ens_test.py` to test the functionality of `ensemble.py`. Still need to debug the unconstrained linear combination weighting scheme, as well as some other things.
 
+##### 08/11/2021 Update
+Included  `opening_realtime.py`, `realtime_test.py`, and `rpss.py`. The first two files open realtime forecasts and events, and test this opening procedure, respectively, while the third contains the code to calculate the rolling probability skill score. Updated `ens_test.py` to include code to create the plots that will be included in my thesis (I will include any additional plots I may produce.) Updated `metric_utils.py` to calcuate equitable threat score (ETS) and Appleman's skill score (ApSS). Tidied up and commented  every file.
+ 
 ###### References 
 * Leka, K.D., Park, S.H., Kusano, K., Andries, J., Barnes, G., Bingham, S., Bloomfield, D.S., McCloskey, A.E., Delouille, V., Falconer, D. and Gallagher, P.T., 2019. A comparison of flare forecasting methods. II. Benchmarks, metrics, and performance results for operational solar flare forecasting systems. The Astrophysical Journal Supplement Series, 243(2), p.36.
 
