@@ -228,7 +228,8 @@ class Ensemble:
             else:
                 # In this case, an invalid value has been selected.
                 raise ValueError("'desired_forecast' must be one of: "
-                                  "'C-only', 'C1+', 'M-only', 'M1+'.")
+                                  "'C-only', 'C1+', 'M-only', 'M1+', "
+                                  "'X-only', or 'X1+'.")
 
             # Store the model name and its forecast into the dataframe.
             df_dict[name] = forecast_values
