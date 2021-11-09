@@ -492,5 +492,3 @@ def plot_operational_periods(model_type="full disk", savename=None):
     plt.show()
 
     return ax
-
-# a = plot_operational_periods()
