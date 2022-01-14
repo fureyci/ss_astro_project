@@ -94,7 +94,8 @@ def fill_missing_dates(df, start, end, date_location):
         # Set the date column to the dates.
         df_out.loc[:, "VALID_DATE"] = date_range
 
-        # Find the indices of rows where forecast was given.
+        # Find the indices of rows that correspond to dates where
+        # forecast was given.
         events_indices = df_out[
                                 df_out["VALID_DATE"].isin(df["VALID_DATE"])
                                 ].index
@@ -130,11 +131,11 @@ def get_scoreboard_models(model_type="full disk"):
         raise ValueError("Invalid value entered for 'model type'. Choose "
                          "one of 'full disk', 'regions', or 'both'.")
 
-    # URL of catalogue.
+    # URL of catalogue. 
     NAME_URL = "https://iswa.gsfc.nasa.gov/IswaSystemWebApp/flarescoreboard/hapi/catalog"
 
-    # Open the URL. If you don't use json.loads(), will open as a string.
-    # This ensures it is opened as a dict.
+    # Open the URL. Use json.loads() to ensure that the file is opened
+    # as a dict and not a string.
     with urllib.request.urlopen(NAME_URL) as url:
         model_names_json = json.loads(url.read().decode())
 
@@ -156,13 +157,12 @@ def get_scoreboard_models(model_type="full disk"):
 
     return models
 
-
 # =====================================================================
 # Define function that will fetch real time data.
 
 def get_realtime_data(tstart, tend, verbose=False):
     """Function that loads GOES event list through the Heliophysics
-    Event Knowledgebase (HEK) and the forecast of all available models
+    Event Knowledgebase (HEK) and the forecasts of all available models
     from the Flare Scoreboard API between tstart and tend.
 
     Each model on the Flare Scoreboard have different operational
@@ -193,22 +193,20 @@ def get_realtime_data(tstart, tend, verbose=False):
         The names of each model from Flare Scoreboard.
 
     """
-    # =================================================================
     # Opening realtime events.
-
     result = Fido.search(a.Time(tstart, tend),
                           a.hek.EventType("FL"),
                           a.hek.FL.GOESCls > "C1.0",
                           a.hek.OBS.Observatory == "GOES")
 
-    # Make into a "sunpy.net.hek.hek.HEKTable".
+    # Make into a numpy array from "sunpy.net.hek.hek.HEKTable".
     table = np.asarray(result["hek"]["event_starttime",
                                       "fl_goescls"])
 
     # Convert to pandas dataframe for data handling.
     pd_table = pd.DataFrame(table)
 
-    # Change dates to datetime objects, might not need it.
+    # Change dates to datetime objects.
     pd_table["event_starttime"] = pd.to_datetime(pd_table[
                                         "event_starttime"
                                         ].astype(str).str[:10],
@@ -224,8 +222,8 @@ def get_realtime_data(tstart, tend, verbose=False):
     # First column header is "Date".
     new_col_names = ["Date"]
 
-    # Dictionary to store aggregation functions when we will be combining
-    # rows of the same date.
+    # Dictionary to store aggregation functions, will be combining rows
+    # of the same date.
     aggregation_functions = {}
 
     # Sometimes, if it is a quiet period, there may be no X or M class
@@ -247,11 +245,11 @@ def get_realtime_data(tstart, tend, verbose=False):
 
     # If the Sun is active on a given day, it may produce many flares
     # of the same class. However, in this case, all we need is whether
-    # or not a flare occurred, so we can drop any duplicate rows.
+    # or not a flare occurred, so can drop any duplicate rows.
     pd_table = pd_table.drop_duplicates()
 
     # Now combine rows of the same date.
-    # Since we have dropped duplicates, and used one-hot encoding, can
+    # Since have dropped duplicates, and used one-hot encoding, can
     # now combine rows of the same date.
     pd_table = pd_table.groupby(
         pd_table["Date"],
@@ -342,7 +340,7 @@ def get_realtime_data(tstart, tend, verbose=False):
         pass
 
     # =================================================================
-    # Now we have model names, so load the actual forecasts.
+    # Load the actual forecasts.
 
     # Start of testing period for obtaining forecasts, as string.
     forecast_start = forecast_start.strftime("%Y-%m-%d")
@@ -409,7 +407,7 @@ def get_realtime_data(tstart, tend, verbose=False):
         list_of_forecasts.append(csv)  # Append to list.
 
     # Names of each model
-    names = [i.partition("_")[0] for i in active_models]
+    names = [i.partition("_FULLDISK")[0] for i in active_models]
 
     return events_realtime, list_of_forecasts, names
 
@@ -417,7 +415,8 @@ def get_realtime_data(tstart, tend, verbose=False):
 # =====================================================================
 # Plot operational period for models.
 
-def plot_operational_periods(model_type="full disk", savename=None):
+def plot_operational_periods(model_type="full disk", tstart=None,
+                             savename=None):
     """Plot the operational periods of each model from the flare
     scoreboard. The models shown depend on model_type input.
 
@@ -428,6 +427,9 @@ def plot_operational_periods(model_type="full disk", savename=None):
     model_type : `str`, optional
         Desired to models to load. One of "full disk", "regions", or
         "both". The default is "full disk".
+        tstart : `str`, optional, format "YYYY/MM/DD"
+        Date before which to examine operational periods. If None,
+        uses today's date. The default is None.
     savename : `str`, optional
         Path to save the figure. The default is None.
 
@@ -437,9 +439,24 @@ def plot_operational_periods(model_type="full disk", savename=None):
         Axis where the operational periods have been plotted.
 
     """
+    valid_model_types = ["full disk", "regions", "both"]
+    if model_type not in valid_model_types:
+        raise ValueError("'model_type' must be one of 'full disk', "
+                         "'regions', or 'both'.")
+
     if savename is not None:
         if type(savename) is not str:
             raise ValueError("'savename' must be a string.")
+
+    if tstart is not None and tstart[4] != "/":
+        raise ValueError("'tstart' must be string of the form "
+                         "'YYYY/MM/DD'.")
+
+    if tstart is not None:
+        examine_from = datetime.strptime(tstart,
+                                         "%Y/%m/%d")
+    else:
+        examine_from = date.today()
 
     models = get_scoreboard_models(model_type=model_type)
 
@@ -488,7 +505,8 @@ def plot_operational_periods(model_type="full disk", savename=None):
     plt.yticks(ticks=y+1, labels=models)
     plt.tight_layout()
     if savename is not None:
-        plt.savefig(savename, dpi=200)
+        print("Saving plot...")
+        plt.savefig(savename, dpi=300)
     plt.show()
 
     return ax
