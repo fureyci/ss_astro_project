@@ -41,8 +41,7 @@ def calculate_tss(true_vals, pred_vals):
 
 
 def calculate_tss_threshold(true_vals, prob_vals, thresh):
-    """
-    Calculate the TSS for a given threshold. This should be
+    """Calculate the TSS for a given threshold. This should be
     used when the forecast gives a probability.
 
     Parameters
@@ -88,7 +87,8 @@ def calculate_bss(true_vals, prob_vals):
 
     """
     bs = metrics.brier_score_loss(true_vals, prob_vals)
-    bs_clim = np.mean(true_vals)
+    clim = np.full(true_vals.shape,np.mean(true_vals))
+    bs_clim = metrics.brier_score_loss(true_vals, clim)
     BSS = 1 - bs/bs_clim
     return BSS
 
@@ -189,11 +189,32 @@ def calculate_apss_threshold(true_vals, prob_vals, thresh):
 
     return apss
 
+def calculate_roc_area(true_vals, prob_vals):
+    """Calculate the area under the roc curve (AUC).
+
+    Parameters
+    ----------
+    true_values: `~np.array`
+        the true values.
+    prob_vals: `~np.array`
+        the predicted value probabilities.
+
+    Returns
+    -------
+    auc : `float`
+        The AUC score.
+
+    """
+    fpr, tpr, _ = metrics.roc_curve(true_vals,
+                                    prob_vals)
+    auc = metrics.auc(fpr, tpr)
+
+    return auc
 
 ############## FORECAST METRIC PLOTS #################
 
-
-def plot_roc_curve(true_vals, prob_vals, fmt=None, ax=None):
+def plot_roc_curve(true_vals, prob_vals, ax=None,
+                   mformat=None, mcolour=None, display_auc=True):
     """Plot the receiver operating characteristic (ROC) curve.
 
     Parameters
@@ -205,10 +226,13 @@ def plot_roc_curve(true_vals, prob_vals, fmt=None, ax=None):
         The predicted probability values of the model.
     ax : `~matplotlib.axes.Axes`, optional
         If provided the image will be plotted on the given axes.
-    fmt : `str`, optional, default is None.
+    mformat : `str`, optional, default is None.
         Marker format of plot. If None, plots square. Used for
         ensemble.py, plots a different format depending on desired
         weighting scheme.
+    mcolour : `str`, optional, default is None
+        Colour of plot, depending on weighting scheme and metric
+        optimised of Ensemble.
 
     Returns
     -------
@@ -217,30 +241,38 @@ def plot_roc_curve(true_vals, prob_vals, fmt=None, ax=None):
 
     """
     fpr, tpr, _ = metrics.roc_curve(true_vals, prob_vals)
-    auc_mcstat = metrics.auc(fpr, tpr)
+    auc = metrics.auc(fpr, tpr)
 
-    fs = 'x-large' # Font size
+    # fs = 'x-large' # Font size
 
     if ax is None:
         fig, ax = plt.subplots()
-        fs = 'medium' # fontsize of axis labels
 
-    if fmt == None:
-        ax.plot(fpr, tpr, label="(AUC = {:.3f})".format(auc_mcstat))
+    if mformat is None:
+        fmt = "-"
     else:
-        ax.plot(fpr, tpr, fmt+"-", ms=10, mfc='none',
-                label="(AUC = {:.3f})".format(auc_mcstat))
+        fmt = mformat+"-"
+    if mcolour is None:
+        c="#1f77b4"
+    else:
+        c=mcolour
+
+    ax.plot(fpr, tpr, fmt, lw=0.7, mew=0.7, ms=6, mfc='none', c=c)
 
     ax.plot([0, 1], [0, 1], color='grey', linestyle='--')
-    ax.set_xlabel("False Positive Rate", size=fs)
-    ax.set_ylabel("True Positive Rate", size=fs)
-    ax.legend(loc="lower right")
-
+    ax.set_xlabel("FPR",size=13)
+    ax.set_ylabel("TPR",size=13)
+    if display_auc is True:
+        ax.text(0.98, 0.03,"AUC = {:.2f}".format(auc),
+                horizontalalignment="right",
+                verticalalignment="bottom",
+                transform = ax.transAxes)
+    ax.tick_params(top=True, right=True)
     return ax
 
 
 def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True,
-                           fmt=None, axes=None):
+                           mformat=None, mcolour=None, axes=None):
     """ Plot the reliability curve (also known as a calibration curve).
     Adjusted to replicate plots from Leka et al 2019 [1].
 
@@ -257,10 +289,13 @@ def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True,
     laplace : `bool`, optional, default is True.
         Whether or not to use Laplace's rule of succession when
         converting observed frequency into probability [2].
-    fmt : `str`, optional, default is None.
+    mformat : `str`, optional, default is None.
         Marker format of plot. If None, plots square. Used for
         ensemble.py, plots a different format depending on desired
         weighting scheme.
+    mcolour : `str`, optional, default is None
+        Colour of plot, depending on weighting scheme and metric
+        optimised of Ensemble.
     axes : `tuple of matplotlib.axes.Axes`, optional
         If provided the image will be plotted on the given axes.
         Expected form:
@@ -332,7 +367,7 @@ def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True,
         fraction_of_positives, mean_predicted_value = calibration_curve(true_vals,
                                                                     pred_vals,
                                                                     n_bins=n_bins)
-        # Don't plot 0, to replicate plots benchmark from Leka 2019.
+        # dont plot 0, to replicate plots benchmark from Leka 2019
         zeros = np.where(fraction_of_positives == 0)
 
         fraction_of_positives = np.delete(fraction_of_positives, zeros)
@@ -340,7 +375,7 @@ def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True,
 
     climatology = np.mean(true_vals)
 
-    # No skill line.
+    # No skill line
     x = [0,1]
     no_skill = 0.5 * (x-climatology) + climatology
 
@@ -353,43 +388,51 @@ def plot_reliability_curve(true_vals, pred_vals, n_bins=10, laplace=True,
         ax1 = axes[0]
         ax2 = axes[1]
 
-    ax1.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
+    ax1.plot([0, 1], [0, 1], "k--", label="Perfectly calibrated", lw=0.7)
 
-    if fmt is None:
-        if laplace:
-            ax1.errorbar(mean_predicted_value, fraction_of_positives, fmt="s-",
-                         yerr=true_err, capthick=1, elinewidth=1, capsize=3)
-        else:
-            ax1.plot(mean_predicted_value, fraction_of_positives, "s-")
+    if mformat == None:
+        marker_format = "s"
     else:
-        if laplace:
-            ax1.errorbar(mean_predicted_value, fraction_of_positives,
-                         fmt=fmt, ls='-', ms = 10, mfc='none',
-                         yerr=true_err, capthick=1, elinewidth=1, capsize=3)
-        else:
-            ax1.plot(mean_predicted_value, fraction_of_positives,
-                     fmt=fmt, ls='-', mfc='none')
+        marker_format = mformat
+
+    if mcolour == None:
+        c = "#1f77b4" # Default blue
+        ecolor = "#1f77b4"
+        mfc = "#1f77b4"
+    else:
+        c = mcolour
+        ecolor = mcolour
+        mfc = "none"
+
+    if laplace:
+        ax1.errorbar(mean_predicted_value, fraction_of_positives,
+                     c=c, fmt=marker_format, linestyle='-', ms = 7, lw=0.7,
+                     mfc=mfc, mew=0.7, yerr=true_err, ecolor=ecolor, capthick=0.7,
+                     elinewidth=0.7, capsize=2)
+    else:
+        ax1.plot(mean_predicted_value, fraction_of_positives,
+                 c=c, fmt=marker_format, ls='-', mfc=mfc)
 
     ax1.plot(x, no_skill, "k",
              ls=(0, (5, 10)),
-             lw=0.5, label="No-skill")
+             lw=0.7, label="No-skill")
     ax1.tick_params(which="both", labelbottom=False)
     ax1.plot([0,1], [climatology,climatology],
-             color="grey", label="Climatology")
-    ax1.legend(loc="upper left")
+             color="grey", label="Climatology", lw=0.7)
+    # ax1.legend(loc="upper left")
 
     ax2.hist(pred_vals, range=(0, 1), bins=n_bins,
-             histtype="step", lw=2)
+             histtype="step", lw=1, color=c)
 
     if axes is None:
         fs = 'medium'
     else:
-        fs = 'x-large'
-    ax1.set_ylabel("Observed Probability", size=fs)
-    ax2.set_xlabel("Forecast Probability", size=fs)
-    ax2.set_ylabel("# events", size=fs)
+        fs = 15
+    ax1.set_ylabel(r"$\mathdefault{P_k^{\rm obs}}$", size=fs)
+    ax2.set_xlabel(r"$\mathdefault{P_k}$", size=fs)
+    ax2.set_ylabel(r"$\mathdefault{n_k}$", size=fs)
 
-    plt.subplots_adjust(hspace=0.1)
+    # plt.subplots_adjust(hspace=0)
 
     if axes is None:
         plt.tight_layout()
