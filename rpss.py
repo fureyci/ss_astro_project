@@ -24,7 +24,6 @@ More info:
     https://www.cawcr.gov.au/projects/verification/
 
 """
-
 import numpy as np
 import pandas as pd
 
@@ -39,9 +38,9 @@ def av_rps(forecasts, events):
 
     Parameters
     ----------
-    forecasts : `np.array`
+    forecasts : `np.array`, shape (no. days, no. categories)
         Forecast values.
-    events : `np.array`
+    events : `np.array`, same shape as forecasts
         Events array.
 
     Returns
@@ -66,7 +65,7 @@ def av_rps(forecasts, events):
     #
     # np.cumsum(A, axis=1)
     # >>> [[a1, (a2 + a1), ... , (aN + aN-1 + ... + a2 + a1)]
-    #      [a1, (a2 + a1), ... , (aN + aN-1 + ... + a2 + a1)]
+    #      [b1, (b2 + b1), ... , (bN + bN-1 + ... + b2 + b1)]
     #                      ...                               ]
     cum_forecasts = np.cumsum(forecasts, axis=1)
     cum_events = np.cumsum(events, axis=1)
@@ -77,13 +76,14 @@ def av_rps(forecasts, events):
                                      ).T
 
     # Now go through every column to perform RPS sum.
+    #
+    # Start at index one because want to access columns up to certain
+    # indices, i.e, a[:i] is every element of a up to index i.
     for i in range(1, len(forecasts[0])+1):
         rps_for_each_day += np.atleast_2d(
             np.sum(((cum_forecasts[:,:i] - cum_events[:,:i])**2),
                     axis=1)
             ).T
-
-    rps_for_each_day = rps_for_each_day / float(len(events[0])-1)
 
     average_rps = np.mean(rps_for_each_day)
 
@@ -104,6 +104,7 @@ def rpss(forecast, events, bootstrap=False):
     bootstrap : `bool`, optional
         Whether to perform bootstrapping with replacement to estimate
         the standard deviation of the RPSS. The default is False.
+        Takes substantially longer when True.
 
     Returns
     -------
@@ -119,11 +120,13 @@ def rpss(forecast, events, bootstrap=False):
     available_flare_classes = list(events)
 
     # Climatology average RPS.
+    #
+    # Climatology for each class.
     climatology = np.mean(events, axis=0)
 
     climatology_values_array = np.zeros((len(forecast.iloc[:,0]),
-                                          len(available_flare_classes)
-                                          )
+                                         len(available_flare_classes)
+                                         )
                                         )
 
     for i, fl_class in enumerate(available_flare_classes):
@@ -154,19 +157,18 @@ def rpss(forecast, events, bootstrap=False):
             boot_sample.append(rpss_boot)
 
         sdev = np.std(boot_sample, ddof=1)
-
         return rpss_forecast, sdev
 
-
     else:
-        return rpss_forecast
+        return rpss_forecast 
 
-
-def rolling_rpss(forecasts, model_names, observations, n_days,
-                  forecast_type="exceedance",
-                  desired_weighting="constrained",
-                  desired_metric="brier",
-                  bootstrap=False):
+def rolling_rpss(forecasts, observations, n_days,
+                model_names=None,
+                forecast_type="exceedance",
+                desired_weighting="CLC",
+                desired_metric="BS",
+                bootstrap=False,
+                ensemble=True):
     """The rolling RPSS.
 
     That is, for an n_days rolling RPSS, for day i in the testing
@@ -223,40 +225,74 @@ def rolling_rpss(forecasts, model_names, observations, n_days,
     classes_to_forecast = [i+end_of_forecast
                             for i in available_flare_classes]
 
-    # List of ensembles of the same weighting scheme
-    # (same desired_weighting) but with different flare classes
-    # forecasted.
-    ensemble_list = [Ensemble(forecasts, model_names, observations,
-                              desired_forecast=flare_class,
-                              desired_metric=desired_metric,
-                              desired_weighting=desired_weighting)
-                      for flare_class in classes_to_forecast]
+    if ensemble is True:
+        # List of ensembles of the same weighting scheme
+        # (same desired_weighting) but with different flare classes
+        # forecasted.
+        ensemble_list = [Ensemble(forecasts, model_names, observations,
+                                  desired_forecast=flare_class,
+                                  desired_metric=desired_metric,
+                                  desired_weighting=desired_weighting)
+                          for flare_class in classes_to_forecast]
 
-    dates = pd.to_datetime(observations.index.values[n_days:],
-                                    format="%Y-%m-%d")
+        dates = pd.to_datetime(observations.index.values[n_days:],
+                                        format="%Y-%m-%d")
 
-    df_dict = {} # For eventual pandas dataframe.
+        df_dict = {} # For eventual pandas dataframe.
 
-    # Create df.
-    # Columns correspond to the forecasts of each flare class.
-    for i, model in enumerate(ensemble_list):
-        df_dict[available_flare_classes[i]] = model.forecast
+        # Create df.
+        # Columns correspond to the forecasts of each flare class.
+        for i, model in enumerate(ensemble_list):
+            df_dict[available_flare_classes[i]] = model.forecast
 
-    ensemble_df = pd.DataFrame(df_dict) # create df
+        ensemble_df = pd.DataFrame(df_dict) # create df
 
-    rrpss_list = [] # List to store rolling RPSS.
-    rrpss_sdev_list = [] # List to store bootstrapped sdev if desired.
-    for i in range(n_days, len(ensemble_list[0].forecast)):
-        rolling_forecast = ensemble_df.iloc[i-n_days:i]
-        rolling_events = observations.iloc[i-n_days:i]
-        if bootstrap:
-            current_rpss, current_rpss_sdev = rpss(rolling_forecast,
-                                                    rolling_events,
-                                                    bootstrap=True)
-            rrpss_list.append(current_rpss)
-            rrpss_sdev_list.append(current_rpss_sdev)
-        else:
-            current_rpss = rpss(rolling_forecast, rolling_events)
-            rrpss_list.append(current_rpss)
+        rrpss_list = [] # List to store rolling RPSS.
+        rrpss_sdev_list = [] # List to store bootstrapped sdev if desired.
+        for i in range(n_days, len(ensemble_list[0].forecast)):
+            rolling_forecast = ensemble_df.iloc[i-n_days:i]
+            rolling_events = observations.iloc[i-n_days:i]
+            if bootstrap:
+                current_rpss, current_rpss_sdev = rpss(rolling_forecast,
+                                                        rolling_events,
+                                                        bootstrap=True)
+                rrpss_list.append(current_rpss)
+                rrpss_sdev_list.append(current_rpss_sdev)
+            else:
+                current_rpss = rpss(rolling_forecast, rolling_events)
+                rrpss_list.append(current_rpss)
 
-    return dates, rrpss_list, rrpss_sdev_list
+        return dates, rrpss_list, rrpss_sdev_list, ensemble_list[0].colour, ensemble_list[0].format
+
+    else:
+        classes_to_forecast = [i+"(0-24hr)"
+                            for i in classes_to_forecast]
+        # print(classes_to_forecast)
+        model_forecasts = forecasts.loc[:, classes_to_forecast]
+        for column in classes_to_forecast:
+            unique_vals = model_forecasts.loc[:,column].unique()
+            if len(unique_vals) == 1 and unique_vals == -1:
+                return None
+            elif len(unique_vals) == 1 and unique_vals.all() == 0:
+                return None
+
+        dates = pd.to_datetime(forecasts.loc[:,"VALID_DATE"].values[n_days:],
+                               format="%Y-%m-%d")
+
+        rrpss_list = [] # List to store rolling RPSS.
+        rrpss_sdev_list = [] # List to store bootstrapped sdev if desired.
+
+        for i in range(n_days, len(model_forecasts)):
+            rolling_forecast = model_forecasts.iloc[i-n_days:i]
+            rolling_events = observations.iloc[i-n_days:i]
+            if bootstrap:
+                current_rpss, current_rpss_sdev = rpss(rolling_forecast,
+                                                        rolling_events,
+                                                        bootstrap=True)
+                rrpss_list.append(current_rpss)
+                rrpss_sdev_list.append(current_rpss_sdev)
+            else:
+                current_rpss = rpss(rolling_forecast, rolling_events)
+                rrpss_list.append(current_rpss)
+
+        return dates, rrpss_list, rrpss_sdev_list
