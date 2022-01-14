@@ -8,21 +8,33 @@ Code to test functionality of ensemble.py.
 
 Prompts user for input into the console to chose desired flare
 forecast, desired weighting scheme, and desired metric to
-optimise, if the weighting scheme is constrained linear
-combination.
+optimise, if the weighting scheme is CLC/ULC.
 
 As of 03/11/2021, contains the plots that will be used in my thesis.
 
 """
 import numpy as np
+import pandas as pd
+import time
 from matplotlib import pyplot as plt, patches as mpatches, ticker as mticker
-from opening_data import load_benchmark_data
+from matplotlib.legend_handler import HandlerTuple
 import metric_utils
+from opening_data import load_benchmark_data
 from ensemble import Ensemble
 
+# WD_TO_SAVE = _____ # define a directory to save files if desired.
+
+plt.rcParams['font.family'] = 'Palatino Linotype'
+plt.rcParams['font.size'] = 11
+plt.rcParams['axes.titlesize'] = 11
+
+# ===========================================================================
 # Load data.
 events, model_csv_list, model_names_only = load_benchmark_data()
 
+# ===========================================================================
+# User input function and how it can be used to load an ensemble.
+# Pretty tedious...
 def user_input():
     """
     Prompts user to input their desired ensemble parameters
@@ -39,7 +51,7 @@ def user_input():
 
     """
     valid_forecasts = ["C-only", "C1+", "M-only", "M1+"]
-    valid_methods = ["average", "history", "constrained", "unconstrained"]
+    valid_methods = ["Average", "EV", "CLC", "ULC"]
     valid_weights = ["brier", "LCC", "MAE", "REL"]
 
     print("What flare class would you like to forecast?\n"
@@ -57,8 +69,8 @@ def user_input():
             forecast = input("Enter desired forecast: ")
 
     print("\nWhat weighting scheme would you like to use?\n"
-          "Choose one of 'average', 'history', "
-          "'constrained' or 'unconstrained'.")
+          "Choose one of 'Average', 'EV', "
+          "'CLC' or 'ULC'.")
 
     weighting = input("Enter desired scheme: ")
 
@@ -70,293 +82,293 @@ def user_input():
                 # performance history ensemble.
             else:
                 print("\nWhat metric would you like to optimise?\n"
-                      "Choose one of 'brier', 'LCC', or 'MAE'.")
+                      "Choose one of 'BS', 'LCC', or 'MAE'.")
                 metric = input("Enter desired metric: ")
                 while True:
                     if metric in valid_weights:
                         break
                     else:
                         # Ensure metric is valid.
-                        print("\n Please choose one of 'brier', 'LCC', "
+                        print("\n Please choose one of 'BS', 'LCC', "
                               "or 'MAE'.")
                         metric = input("Enter desired metric: ")
             break
 
         else:
             # Ensure weighting is valid.
-            print("\nPlease choose one of 'average', 'history', "
-                  "'constrained' or 'unconstrained'.")
+            print("\nPlease choose one of 'Average', 'EV', "
+                  "'CLC' or 'ULC'.")
             weighting = input("Enter desired scheme: ")
 
     return forecast, weighting, metric
 
 forecast, weighting, metric = user_input()
 
-print("\nBuilding ensemble...")
-test = Ensemble(model_csv_list, model_names_only, events,
-                desired_forecast=forecast,
-                desired_metric=metric,
-                desired_weighting=weighting)
-print("Done. Now plotting reliability diagram and ROC curve...")
-
-# # Alternatively, enter manually.
-#
-# FORECAST = "C1+"
-# METRIC = "brier"
-# WEIGHTING = "constrained"
+# print("\nBuilding ensemble...")
+# forecast, weighting, metric = user_input()
 
 # test = Ensemble(model_csv_list, model_names_only, events,
-#                 desired_forecast=FORECAST,
-#                 desired_metric=METRIC,
-#                 desired_weighting=WEIGHTING)
+#                 desired_forecast=forecast,
+#                 desired_metric=metric,
+#                 desired_weighting=weighting)
+# print("Done. Now plotting reliability diagram and ROC curve...")
+# test.visualise_performance()
 
-test.visualise_performance(which="both")
+# # ===========================================================================
+# # Example of how models are loaded
+
+# FORECAST = "M1+" # flare class to forecast
+# WEIGHTING = "ULC" # weighting scheme to use
+# METRIC = "BS" # metric to optimise, if weighting is either CLC or ULC
+
+# test_ensemble = Ensemble(model_csv_list, model_names_only, events,
+#                          desired_forecast=FORECAST,
+#                          desired_weighting=WEIGHTING,
+#                          desired_metric=METRIC)
 
 # ===========================================================================
-# VISUALISE PERFORMANCE ENSEMBLES.
+# Plots for thesis
+
+now = time.time()  # let's see how long it takes.
 
 # Instantiate models.
-
+print("average")
 # Average weighting, M class.
 average_M = Ensemble(model_csv_list, model_names_only, events,
                 desired_forecast="M1+",
-                desired_weighting="average")
+                # desired_metric=METRIC,
+                desired_weighting="Average")
 
 # Average weighting, C class.
 average_C = Ensemble(model_csv_list, model_names_only, events,
                 desired_forecast="C1+",
-                desired_weighting="average")
+                # desired_metric=METRIC,
+                desired_weighting="Average")
 
 # Performance history weighting, M class.
+print("history")
 history_M = Ensemble(model_csv_list, model_names_only, events,
                 desired_forecast="M1+",
-                desired_weighting="history")
+                # desired_metric=METRIC,
+                desired_weighting="EV")
 
 # Performance history weighting, C class.
 history_C = Ensemble(model_csv_list, model_names_only, events,
                 desired_forecast="C1+",
-                desired_weighting="history")
+                # desired_metric=METRIC,
+                desired_weighting="EV")
 
-# CLC weighting, brier score optimised, M class.
-constrained_M_brier = Ensemble(model_csv_list, model_names_only, events,
+# CLC weighting, BS score optimised, M class.
+print("clc m BS")
+CLC_M_BS = Ensemble(model_csv_list, model_names_only, events,
                                 desired_forecast="M1+",
-                                desired_metric="brier",
-                                desired_weighting="constrained")
+                                desired_metric="BS",
+                                desired_weighting="CLC")
 
-# ULC weighting, brier score optimised, M class.
-unconstrained_M_brier = Ensemble(model_csv_list, model_names_only, events,
+# ULC weighting, BS optimised, M class.
+print("ulc m BS")
+ULC_M_BS = Ensemble(model_csv_list, model_names_only, events,
                                 desired_forecast="M1+",
-                                desired_metric="brier",
-                                desired_weighting="unconstrained")
+                                desired_metric="BS",
+                                desired_weighting="ULC")
 
-# CLC weighting, brier score optimised, C class.
-constrained_C_brier = Ensemble(model_csv_list, model_names_only, events,
+# CLC weighting, BS optimised, C class.
+print("clc c BS")
+CLC_C_BS = Ensemble(model_csv_list, model_names_only, events,
                                 desired_forecast="C1+",
-                                desired_metric="brier",
-                                desired_weighting="constrained")
+                                desired_metric="BS",
+                                desired_weighting="CLC")
 
-# ULC weighting, brier score optimised, C class.
-unconstrained_C_brier = Ensemble(model_csv_list, model_names_only, events,
+# ULC weighting, BS optimised, C class.
+print("ulc c BS")
+ULC_C_BS = Ensemble(model_csv_list, model_names_only, events,
                                 desired_forecast="C1+",
-                                desired_metric="brier",
-                                desired_weighting="unconstrained")
+                                desired_metric="BS",
+                                desired_weighting="ULC")
+
+# CLC weighting, MAE optimised, M class.
+print("clc m MAE")
+CLC_M_MAE = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="M1+",
+                                desired_metric="MAE",
+                                desired_weighting="CLC")
+
+# ULC weighting, MAE optimised, M class.
+print("ulc m MAE")
+ULC_M_MAE = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="M1+",
+                                desired_metric="MAE",
+                                desired_weighting="ULC")
+
+# CLC weighting, MAE optimised, C class.
+print("clc c MAE")
+CLC_C_MAE = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="C1+",
+                                desired_metric="MAE",
+                                desired_weighting="CLC")
+
+# ULC weighting, MAE optimised, C class.
+print("ulc c MAE")
+ULC_C_MAE = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="C1+",
+                                desired_metric="MAE",
+                                desired_weighting="ULC")
+
+# CLC weighting, REL optimised, M class.
+print("clc m REL")
+CLC_M_REL = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="M1+",
+                                desired_metric="REL",
+                                desired_weighting="CLC")
+
+# ULC weighting, REL optimised, M class.
+print("ulc m REL")
+ULC_M_REL = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="M1+",
+                                desired_metric="REL",
+                                desired_weighting="ULC")
+
+# CLC weighting, REL optimised, C class.
+print("clc c REL")
+CLC_C_REL = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="C1+",
+                                desired_metric="REL",
+                                desired_weighting="CLC")
+
+# ULC weighting, REL optimised, C class.
+print("ulc c REL")
+ULC_C_REL = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="C1+",
+                                desired_metric="REL",
+                                desired_weighting="ULC")
+
+# CLC weighting, LCC optimised, M class.
+print("clc m LCC")
+CLC_M_LCC = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="M1+",
+                                desired_metric="LCC",
+                                desired_weighting="CLC")
+
+# ULC weighting, LCC optimised, M class.
+print("ulc m LCC")
+ULC_M_LCC = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="M1+",
+                                desired_metric="LCC",
+                                desired_weighting="ULC")
+
+# CLC weighting, LCC optimised, C class.
+print("clc C LCC")
+CLC_C_LCC = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="C1+",
+                                desired_metric="LCC",
+                                desired_weighting="CLC")
+
+# ULC weighting, LCC optimised, C class.
+print("ulc c LCC")
+ULC_C_LCC = Ensemble(model_csv_list, model_names_only, events,
+                                desired_forecast="C1+",
+                                desired_metric="LCC",
+                                desired_weighting="ULC")
+
+# ===========================================================================
+# The layout of each plot.
+layout = np.array([[average_C, history_C, average_M, history_M],
+              [CLC_C_BS, ULC_C_BS, CLC_M_BS, ULC_M_BS],
+              [CLC_C_MAE, ULC_C_MAE, CLC_M_MAE, ULC_M_MAE],
+              [CLC_C_REL, ULC_C_REL, CLC_M_REL, ULC_M_REL],
+              [CLC_C_LCC, ULC_C_LCC, CLC_M_LCC, ULC_M_LCC]
+              ], dtype=object)
+
 # ---------------------------------------------------------------------------
-# ROC PLOTS.
+# RELIABILITY DIAGRAMS of each model.
 
-# Build figure and axes.
-ROC_fig, \
-    ((avM_ROC_ax, avC_ROC_ax),(hiM_ROC_ax, hiC_ROC_ax), \
-      (ccM_ROC_ax, ccC_ROC_ax),(ucM_ROC_ax, ucC_ROC_ax)) \
-    = plt.subplots(4,2, figsize=(13,16.4),sharex=True,sharey=True)
+rel_fig = plt.figure(figsize=(10,12))
+rel_gs = rel_fig.add_gridspec(20, 4)
 
-# Use "visualise_performance()" method, set the kwarg "plot" to "ROC".
-average_M.visualise_performance(plot="ROC", ax=avM_ROC_ax)
-average_C.visualise_performance(plot="ROC", ax=avC_ROC_ax)
-history_M.visualise_performance(plot="ROC", ax=hiM_ROC_ax)
-history_C.visualise_performance(plot="ROC", ax=hiC_ROC_ax)
-constrained_M_brier.visualise_performance(plot="ROC", ax=ccM_ROC_ax)
-constrained_C_brier.visualise_performance(plot="ROC", ax=ccC_ROC_ax)
-unconstrained_M_brier.visualise_performance(plot="ROC", ax=ucM_ROC_ax)
-unconstrained_C_brier.visualise_performance(plot="ROC", ax=ucC_ROC_ax)
+# Plot each reliability diagram.
+for i in range(len(layout)):
+    for j in range(len(layout[i])):
+        model = layout[i,j] # Access model.
 
-# Hide inner x and y labels.
-for ax in ROC_fig.get_axes():
-    ax.label_outer()
+        # Create axes for each plot.
+        rel_ax = rel_fig.add_subplot(rel_gs[4*i:4*i+3, j])
+        hist_ax = rel_fig.add_subplot(rel_gs[4*i+3, j])
 
-# Set titles.
-avM_ROC_ax.set_title("M1+", fontsize="x-large")
-avC_ROC_ax.set_title("C1+", fontsize="x-large")
+        # Now need to get rid of space between top and bottom axes.
+        # First access the position of the axes.
+        rel_ax_pos = rel_ax.get_position()
+        hist_ax_pos = hist_ax.get_position()
 
-plt.tight_layout()
-# plt.savefig("ROC.jpg", dpi=250)
-plt.show()
+        # Get 2x2 numpy array of the form [[x0, y0], [x1, y1]], where
+        # x0, y0, x1, y1 are the coordinates of the axes on the main
+        # figure.
+        rel_ax_points = rel_ax_pos.get_points()
+        hist_ax_points = hist_ax_pos.get_points()
 
-# ---------------------------------------------------------------------------
-# RELIABILITY DIAGRAMS.
+        # Set y coord of top of histogram axis to y coord of bottom of
+        # reliability diagram axis.
+        hist_ax_points[1][1] = rel_ax_points[0][1]
 
-rel_fig = plt.figure(figsize=(12,16))
+        hist_ax_pos.set_points(hist_ax_points)
 
+        hist_ax.set_position(hist_ax_pos)
 
-avM_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.055, right=0.5075,
-                              top=0.985, bottom = 0.7575,
-                              hspace=0)
+        model.visualise_performance(plot="reliability",
+                                    axes=(rel_ax, hist_ax))
 
-avC_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.5375, right=0.99,
-                              top=0.985, bottom = 0.7575,
-                              hspace=0)
+        rel_ax.tick_params(direction="inout",
+                            which="both",
+                            top=True,
+                            bottom=False,
+                            right=True)
 
-hiM_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.055, right=0.5075,
-                              top=0.7425, bottom = 0.515,
-                              hspace=0)
+        hist_ax.tick_params(direction="inout",
+                            which="both",
+                            top=True,
+                            right=True)
 
-hiC_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.5375, right=0.99,
-                              top=0.7425, bottom=0.515,
-                              hspace=0)
+        if j != 0:
+            hist_ax.tick_params(axis="y",
+                                pad=0.1)
+        else:
+            rel_ax.tick_params(axis="y",
+                                pad=1)
+            hist_ax.tick_params(axis="y",
+                                pad=1)
 
-ccM_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.055, right=0.5075,
-                              top=0.50, bottom = 0.2725,
-                              hspace=0)
+        rel_ax.xaxis.set_minor_locator(mticker.MultipleLocator(0.1))
+        rel_ax.yaxis.set_minor_locator(mticker.MultipleLocator(0.1))
 
-ccC_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.5375, right=0.99,
-                              top=0.50, bottom=0.2725,
-                              hspace=0)
-
-ucM_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.055, right=0.5075,
-                              top=0.2575, bottom = 0.03,
-                              hspace=0)
-
-ucC_gs = rel_fig.add_gridspec(nrows=4, ncols=1,
-                              left=0.5375, right=0.99,
-                              top=0.2575, bottom=0.03,
-                              hspace=0)
+        hist_ax.xaxis.set_minor_locator(mticker.MultipleLocator(0.1))
+        hist_ax.yaxis.set_minor_locator(mticker.MultipleLocator(50))
 
 
-# Top left corner.
-avM_rel_ax = rel_fig.add_subplot(avM_gs[0:3, 0])
-avM_hist_ax = rel_fig.add_subplot(avM_gs[3, 0])
+        # Remove labels of inner plots.
+        # Can't be done with label_outer(), since want to keep yaxis
+        # labels of the distributions, since not always the same.
+        if i < 4 and j > 0:
+            rel_ax.set_ylabel("")
+            rel_ax.set_yticklabels([])
 
-# Top right corner.
-avC_rel_ax = rel_fig.add_subplot(avC_gs[0:3, 0])
-avC_hist_ax = rel_fig.add_subplot(avC_gs[3, 0])
+            hist_ax.set_ylabel("")
 
-# 2nd row, left.
-hiM_rel_ax = rel_fig.add_subplot(hiM_gs[0:3, 0])
-hiM_hist_ax = rel_fig.add_subplot(hiM_gs[3, 0])
+        # Remove ylabels for bottom row.
+        if i == 4 and j > 0:
+            rel_ax.set_ylabel("")
+            rel_ax.set_yticklabels([])
 
-# 2nd row, right.
-hiC_rel_ax = rel_fig.add_subplot(hiC_gs[0:3, 0])
-hiC_hist_ax = rel_fig.add_subplot(hiC_gs[3, 0])
+            hist_ax.set_ylabel("")
 
-# 3rd row, left.
-ccM_rel_ax = rel_fig.add_subplot(ccM_gs[0:3, 0])
-ccM_hist_ax = rel_fig.add_subplot(ccM_gs[3, 0])
+        # Set titles of columns.
+        if i == 0 and j == 0:
+            rel_ax.text(1.02, 1.1, "C+",
+                        transform = rel_ax.transAxes)
 
-# 3rd row, right.
-ccC_rel_ax = rel_fig.add_subplot(ccC_gs[0:3, 0])
-ccC_hist_ax = rel_fig.add_subplot(ccC_gs[3, 0])
+        if i == 0 and j == 2:
+            rel_ax.text(1.02, 1.1, "M+",
+                        transform = rel_ax.transAxes)
 
-# Bottom row, left.
-ucM_rel_ax = rel_fig.add_subplot(ucM_gs[0:3, 0])
-ucM_hist_ax = rel_fig.add_subplot(ucM_gs[3, 0])
-
-# Bottom row, right.
-ucC_rel_ax = rel_fig.add_subplot(ucC_gs[0:3, 0])
-ucC_hist_ax = rel_fig.add_subplot(ucC_gs[3, 0])
-
-average_M.visualise_performance(plot="reliability",
-                                axes=(avM_rel_ax, avM_hist_ax))
-average_C.visualise_performance(plot="reliability",
-                                axes=(avC_rel_ax, avC_hist_ax))
-history_M.visualise_performance(plot="reliability",
-                                axes=(hiM_rel_ax, hiM_hist_ax))
-history_C.visualise_performance(plot="reliability",
-                                axes=(hiC_rel_ax, hiC_hist_ax))
-constrained_M_brier.visualise_performance(plot="reliability",
-                                axes=(ccM_rel_ax, ccM_hist_ax))
-constrained_C_brier.visualise_performance(plot="reliability",
-                                axes=(ccC_rel_ax, ccC_hist_ax))
-unconstrained_M_brier.visualise_performance(plot="reliability",
-                                axes=(ucM_rel_ax, ucM_hist_ax))
-unconstrained_C_brier.visualise_performance(plot="reliability",
-                                axes=(ucC_rel_ax, ucC_hist_ax))
-
-# Adjust ticks and tick labels.
-# Top left.
-avM_rel_ax.tick_params(top=True, right=True, direction="inout")
-avM_hist_ax.set_xticklabels([])
-avM_hist_ax.set_xlabel("")
-avM_hist_ax.tick_params(top=True, direction="inout")
-
-# Top right.
-avC_rel_ax.tick_params(top=True, right=True, direction="inout")
-avC_rel_ax.set_yticklabels("")
-avC_rel_ax.set_ylabel("")
-avC_rel_ax.get_legend().remove()
-avC_hist_ax.set_xticklabels([])
-avC_hist_ax.set_xlabel("")
-avC_hist_ax.set_ylabel("")
-avC_hist_ax.tick_params(top=True, direction="inout")
-
-# 2nd row, left.
-hiM_rel_ax.tick_params(top=True, right=True, direction="inout")
-hiM_rel_ax.get_legend().remove()
-hiM_hist_ax.set_xticklabels([])
-hiM_hist_ax.set_xlabel("")
-hiM_hist_ax.tick_params(top=True, direction="inout")
-
-
-# 2nd row, right.
-hiC_rel_ax.tick_params(top=True, right=True, direction="inout")
-hiC_rel_ax.set_yticklabels("")
-hiC_rel_ax.set_ylabel("")
-hiC_rel_ax.get_legend().remove()
-hiC_hist_ax.set_xticklabels([])
-hiC_hist_ax.set_xlabel("")
-hiC_hist_ax.set_ylabel("")
-hiC_hist_ax.tick_params(top=True, direction="inout")
-
-# 3rd row, left.
-ccM_rel_ax.tick_params(top=True, right=True, direction="inout")
-ccM_rel_ax.get_legend().remove()
-ccM_hist_ax.set_xticklabels([])
-ccM_hist_ax.set_xlabel("")
-ccM_hist_ax.tick_params(top=True, direction="inout")
-
-# 3rd row, right.
-ccC_rel_ax.tick_params(top=True, right=True, direction="inout")
-ccC_rel_ax.set_yticklabels("")
-ccC_rel_ax.set_ylabel("")
-ccC_rel_ax.get_legend().remove()
-ccC_hist_ax.set_xticklabels([])
-ccC_hist_ax.set_xlabel("")
-ccC_hist_ax.set_ylabel("")
-ccC_hist_ax.tick_params(top=True, direction="inout")
-
-# Bottom row, left.
-ucM_rel_ax.tick_params(top=True, right=True, direction="inout")
-ucM_rel_ax.get_legend().remove()
-ucM_hist_ax.tick_params(top=True, direction="inout")
-
-# Bottom row, right.
-ucC_rel_ax.tick_params(top=True, right=True, direction="inout")
-ucC_rel_ax.set_yticklabels("")
-ucC_rel_ax.set_ylabel("")
-ucC_rel_ax.get_legend().remove()
-ucC_hist_ax.set_ylabel("")
-ucC_hist_ax.tick_params(top=True, direction="inout")
-
-# Label flare class.
-avM_rel_ax.set_title("M1+")
-avC_rel_ax.set_title("C1+")
-
-# plt.savefig("rel.jpg", dpi=250)
+# plt.savefig(WD_TO_SAVE+"rel.jpg", dpi=300, bbox_inches="tight")
 plt.show()
 
 # =====================================================================
@@ -369,23 +381,33 @@ plt.show()
 # M CLASS FORECASTS.
 ensemble_list_M = [average_M,
                     history_M,
-                    constrained_M_brier,
-                    unconstrained_M_brier]
+                    CLC_M_BS,
+                    ULC_M_BS,
+                    CLC_M_MAE,
+                    ULC_M_MAE,
+                    CLC_M_REL,
+                    ULC_M_REL,
+                    CLC_M_LCC,
+                    ULC_M_LCC]
 
 # C CLASS FORECASTS.
 ensemble_list_C = [average_C,
                     history_C,
-                    constrained_C_brier,
-                    unconstrained_C_brier]
+                    CLC_C_BS,
+                    ULC_C_BS,
+                    CLC_C_MAE,
+                    ULC_C_MAE,
+                    CLC_C_REL,
+                    ULC_C_REL,
+                    CLC_C_LCC,
+                    ULC_C_LCC]
 
 # Threshold to convert probabilistic forecasts into dichotomous ones.
-# If p > PTH, it will be registered as a flare occured, whereas if
-# p < PTH, this will imply a flare did not occur.
 PTH = 0.5
 
 def bootstrap(ens_list, metric, verbose=False):
     """Estimate the uncertainty of a performance metric by performing
-    bootstrapping with replacement on the forecasts and events
+    bootstrapping with replacement on the forecasts and obsercations
     for each Ensemble in ens_list.
 
     Parameters
@@ -410,11 +432,11 @@ def bootstrap(ens_list, metric, verbose=False):
         raise TypeError(" 'ens_list' must be either type ensemble.Ensemble "
                         "object, or a list of type ensemble.Ensemble objects.")
 
-    valid_metrics = ["tss", "bss", "ets", "apss", "fb"]
+    valid_metrics = ["tss", "bss", "ets", "apss", "fb", "auc"]
 
     if metric not in valid_metrics:
         raise TypeError("Invalid metric entered. Chose one of "
-                        "'tss', 'bss', 'ets', 'apss', or 'fb'.")
+                        "'tss', 'bss', 'ets', 'apss', 'fb', or 'auc'.")
 
     iterations = 1000  # Number of bootstrap samples to draw.
 
@@ -465,6 +487,10 @@ def bootstrap(ens_list, metric, verbose=False):
                                                         bootstrap_forecast,
                                                         PTH
                                                         )
+
+            elif metric == "auc":
+                boot_metric = metric_utils.calculate_roc_area(bootstrap_events,
+                                                              bootstrap_forecast)
 
             metric_list.append(boot_metric)
 
@@ -543,32 +569,32 @@ fb_list_C = [metric_utils.calculate_fb_threshold(
 
 fb_err_list_C = bootstrap(ensemble_list_C, "fb")
 
-M_metric_array = np.array((bss_list_M,
-                            tss_list_M,
-                            ets_list_M,
+M_metric_array = np.array((tss_list_M,
                             apss_list_M,
+                            ets_list_M,
+                            bss_list_M,
                             fb_list_M))
 
-C_metric_array = np.array((bss_list_C,
-                            tss_list_C,
-                            ets_list_C,
+C_metric_array = np.array((tss_list_C,
                             apss_list_C,
+                            ets_list_C,
+                            bss_list_C,
                             fb_list_C))
 
-M_err_metric_array = np.array((bss_err_list_M,
-                                tss_err_list_M,
-                                ets_err_list_M,
+M_err_metric_array = np.array((tss_err_list_M,
                                 apss_err_list_M,
+                                ets_err_list_M,
+                                bss_err_list_M,
                                 fb_err_list_M))
 
-C_err_metric_array = np.array((bss_err_list_C,
-                                tss_err_list_C,
-                                ets_err_list_C,
+C_err_metric_array = np.array((tss_err_list_C,
                                 apss_err_list_C,
+                                ets_err_list_C,
+                                bss_err_list_C,
                                 fb_err_list_C))
 
 # Names for labelling axes.
-score_names = ["BSS", "TSS", "ETS", "APSS", "FB"]
+score_names = ["TSS", "APSS", "ETS", "BSS", "FB"]
 
 # Define number of metrics, used to position plots, might add more
 # so better to have it in general. Also need the rightmost plot for FB,
@@ -577,7 +603,7 @@ NO_METRICS = len(score_names)
 NO_MODELS = len(ensemble_list_M)
 
 # Create figure.
-metric_plot = plt.figure(figsize=(2*(NO_METRICS+1), 6))
+metric_plot = plt.figure(figsize=(9,6))
 
 # Add gridspec for M metrics.
 M_metrics = metric_plot.add_gridspec(nrows=1, ncols=NO_METRICS,
@@ -606,12 +632,16 @@ M_no_fb.yaxis.set_ticks([-1,-0.5,0,0.5,1])
 M_no_fb.yaxis.set_minor_locator(mticker.MultipleLocator(0.1))
 M_no_fb.tick_params(which="both", left=True, direction="inout")
 M_no_fb.axhline(0, c="k", ls="--", lw=1)
+M_no_fb.text(0.02, 1.01, "M+", va="bottom", ha="left",
+              transform=M_no_fb.transAxes)
 
 C_no_fb.set_ylim(-1,1)
 C_no_fb.yaxis.set_ticks([-1,-0.5,0,0.5,1])
 C_no_fb.yaxis.set_minor_locator(mticker.MultipleLocator(0.1))
 C_no_fb.tick_params(which="both", left=True, direction="inout")
 C_no_fb.axhline(0, c="k", ls="--", lw=1)
+C_no_fb.text(0.02, 1.01, "C+", va="bottom", ha="left",
+              transform=C_no_fb.transAxes)
 
 # fb plots.
 M_fb.set_ylim(0,2)
@@ -650,52 +680,224 @@ C_fb.set_xlim([0.5,1.5])
 C_fb.xaxis.set_ticks([1])
 C_fb.set_xticklabels([score_names[-1]])
 
-W = 0.4  # width of region points will be plotted
+W = 0.7  # Width of region points will be plotted.
+
+artists = []
+labels = []
 
 for i in range(NO_MODELS):
     x_pos_no_fb = x_no_fb - (W/2.0) + i*(W/float(NO_MODELS - 1))
     x_pos_fb = 1 - (W/2.0) + i*(W/float(NO_MODELS - 1))
 
     # Plot points for unambiguity of position.
-    M_no_fb.errorbar(x_pos_no_fb, M_metric_array[:-1,i],
-                      yerr=M_err_metric_array[:-1,i],
-                  elinewidth=0.5, capsize=3, capthick=0.5,
-                      color="#1f77b4", fmt=".", ms=5)
-    C_no_fb.errorbar(x_pos_no_fb, C_metric_array[:-1,i],
-                      yerr=C_err_metric_array[:-1,i],
-                  elinewidth=0.5, capsize=3, capthick=0.5,
-                      color="#1f77b4", fmt=".", ms=5)
+    M_no_fb_point = M_no_fb.errorbar(x_pos_no_fb, M_metric_array[:-1,i],
+                                      yerr=M_err_metric_array[:-1,i],
+                                      elinewidth=0.5, capsize=3, capthick=0.5,
+                                      color=ensemble_list_M[i].colour, fmt=".", ms=5)
+    C_no_fb_point = C_no_fb.errorbar(x_pos_no_fb, C_metric_array[:-1,i],
+                                      yerr=C_err_metric_array[:-1,i],
+                                      elinewidth=0.5, capsize=3, capthick=0.5,
+                                      color=ensemble_list_M[i].colour, fmt=".", ms=5)
 
-    M_fb.errorbar(x_pos_fb, M_metric_array[-1,i],
-                  yerr=M_err_metric_array[-1,i],
-                  elinewidth=0.5, capsize=3, capthick=0.5,
-                  color="#1f77b4", fmt=".", ms=5)
-    C_fb.errorbar(x_pos_fb, C_metric_array[-1,i],
-                  yerr=C_err_metric_array[-1,i],
-                  elinewidth=0.5, capsize=3, capthick=0.5,
-                  color="#1f77b4", fmt=".", ms=5)
+    M_fb_point = M_fb.errorbar(x_pos_fb, M_metric_array[-1,i],
+                                yerr=M_err_metric_array[-1,i],
+                                elinewidth=0.5, capsize=3, capthick=0.5,
+                                color=ensemble_list_M[i].colour, fmt=".", ms=5)
+    C_fb_point = C_fb.errorbar(x_pos_fb, C_metric_array[-1,i],
+                                yerr=C_err_metric_array[-1,i],
+                                elinewidth=0.5, capsize=3, capthick=0.5,
+                                color=ensemble_list_M[i].colour, fmt=".", ms=5)
 
+    M_no_fb_point_test, = M_no_fb.plot(x_pos_no_fb, M_metric_array[:-1,i],".",
+                                      color=ensemble_list_M[i].colour,ms=5)
     # Plot the symbols.
-    M_no_fb.scatter(x_pos_no_fb, M_metric_array[:-1,i],
-                    color="#1f77b4", marker=ensemble_list_M[i].format,
-                    facecolors="none", s=90)
-    C_no_fb.scatter(x_pos_no_fb, C_metric_array[:-1,i],
-                    color="#1f77b4", marker=ensemble_list_M[i].format,
-                    facecolors="none", s=90)
-    M_fb.scatter(x_pos_fb, M_metric_array[-1,i],
-                    color="#1f77b4", marker=ensemble_list_M[i].format,
-                    facecolors="none", s=90)
-    C_fb.scatter(x_pos_fb, C_metric_array[-1,i],
-                    color="#1f77b4", marker=ensemble_list_M[i].format,
-                    facecolors="none", s=90)
+    M_no_fb_marker, = M_no_fb.plot(x_pos_no_fb, M_metric_array[:-1,i],
+                                  ls="",fillstyle="none",ms=9,
+                                      color=ensemble_list_M[i].colour,
+                                      marker=ensemble_list_M[i].format)
+                                      # facecolors="none", s=90)
+    C_no_fb_marker, = C_no_fb.plot(x_pos_no_fb, C_metric_array[:-1,i],
+                                  ls="",fillstyle="none",ms=9,
+                                      color=ensemble_list_M[i].colour,
+                                      marker=ensemble_list_M[i].format)
+    M_fb_marker, = M_fb.plot(x_pos_fb, M_metric_array[-1,i],
+                                  ls="",fillstyle="none",ms=9,
+                                      color=ensemble_list_M[i].colour,
+                                      marker=ensemble_list_M[i].format)
+    C_fb_marker, = C_fb.plot(x_pos_fb, C_metric_array[-1,i],
+                                  ls="",fillstyle="none",ms=9,
+                                      color=ensemble_list_M[i].colour,
+                                      marker=ensemble_list_M[i].format)
 
-# plt.savefig("metric_plot.jpg", dpi=300)
+    if i < 2:
+        artists.append(M_no_fb_marker)
+        labels.append(ensemble_list_M[i].desired_weighting)
+
+    if i == 2:
+        artists.append(mpatches.Patch(color="white"))
+        labels.append("")
+
+    if i == 3:
+        artists.append(mpatches.Patch(color=ensemble_list_M[i+1].colour,
+                                      ec="black", lw=0.5))
+        labels.append(ensemble_list_M[i+1].desired_weighting)
+        artists.append(mpatches.Patch(color=ensemble_list_M[i].colour,
+                                      ec="black", lw=0.5))
+        labels.append(ensemble_list_M[i].desired_weighting)
+
+    if i >= 2:
+        if i % 2 == 0:
+            double_handle = []
+        double_handle.append(M_no_fb_marker)
+
+        if i % 2 == 1:
+            artists.append(tuple(double_handle))
+            labels.append(ensemble_list_M[i].desired_metric)
+
+M_fb.legend(artists, labels,
+            bbox_to_anchor=(1.95, 1.035),frameon=False, handlelength=2,
+              handler_map={tuple: HandlerTuple(ndivide=None)})
+# plt.savefig(WD_TO_SAVE+"metric_plot.jpg", dpi=300, bbox_inches="tight")
+plt.show()
+
+# ---------------------------------------------------------------------
+# Create table in latex form with all scores and uncertainties.
+
+table_headers = ["TSS", "ApSS", "ETS", "BSS", "AUC"]
+model_column = ["Average", "EV", "CLC, BS", "ULC, BS", "CLC, MAE", "ULC, MAE",
+                "CLC, REL", "ULC, REL", "CLC, LCC", "ULC, LCC"]
+
+# Calcuate AUC of ROC curve.
+roc_list_M = [metric_utils.calculate_roc_area(
+    x.events, x.forecast
+    ) for x in ensemble_list_M]
+
+roc_err_list_M = bootstrap(ensemble_list_M, "auc")
+
+roc_list_C = [metric_utils.calculate_roc_area(
+    x.events, x.forecast
+    ) for x in ensemble_list_C]
+
+roc_err_list_C = bootstrap(ensemble_list_C, "auc")
+
+# Get rid of FB (index -1) and add in roc area.
+M_metrics_latex = np.append(M_metric_array[:-1], [roc_list_M],axis=0).T
+M_err_latex = np.append(M_err_metric_array[:-1], [roc_err_list_M], axis=0).T
+
+# Empty array to store metrics and bootstrapped uncertainties in string
+# format.
+M_latex_table = np.empty(M_metrics_latex.shape, dtype=object)
+
+for i in range(len(M_latex_table)):
+    for j in range(len(M_latex_table[i])):
+        M_latex_table[i][j] = "{:.2} ({:.2})".format(M_metrics_latex[i][j],
+                                                      M_err_latex[i][j])
+
+# Create latex table of pandas dataframe.
+ensemble_M_metrics_latex = pd.DataFrame(M_latex_table,
+                                        columns=table_headers,
+                                        index=model_column
+                                        ).to_latex(column_format="lrrrr")
+
+C_metrics_latex = np.append(C_metric_array[:-1], [roc_list_C],axis=0).T
+C_err_latex = np.append(C_err_metric_array[:-1], [roc_err_list_C], axis=0).T
+C_latex_table = np.empty(C_metrics_latex.shape, dtype=object)
+
+for i in range(len(M_latex_table)):
+    for j in range(len(M_latex_table[i])):
+        C_latex_table[i][j] = "{:.2} ({:.2})".format(C_metrics_latex[i][j],
+                                                      C_err_latex[i][j])
+
+ensemble_C_metrics_latex = pd.DataFrame(C_latex_table,
+                                        columns=table_headers,
+                                        index=model_column
+                                        ).to_latex(column_format="lrrrr")
+
+print(ensemble_M_metrics_latex)
+print(ensemble_C_metrics_latex)
+
+# ---------------------------------------------------------------------------
+# EXAMPLE PLOTS FOR INTRODUCTION OF THESIS.
+# Will plot ULC C BS figures.
+
+example_index = np.where(np.array(model_column) == "ULC, BS")[0][0]
+
+rocfig = plt.figure(figsize=(5,5))
+rocax = rocfig.add_subplot(111)
+ULC_C_BS.visualise_performance(plot="ROC", ax=rocax, display_auc=False)
+rocax.tick_params(axis="both", which="major", top=True, right=True,
+                  direction="inout")
+rocax.text(0.98, 0.03,
+            r"AUC = $\mathdefault{%.2f \pm %.2f}$" %(roc_list_C[example_index],
+                                                    roc_err_list_C[example_index]),
+        horizontalalignment="right",
+        verticalalignment="bottom",
+        transform = rocax.transAxes)
+# plt.savefig(WD_TO_SAVE+"testroc.jpg", dpi=300, bbox_inches="tight")
+plt.show()
+
+test_relfig = plt.figure(figsize=(5,5))
+relgs1 = test_relfig.add_gridspec(nrows=4, ncols=1, hspace=0)
+relax1 = test_relfig.add_subplot(relgs1[0:3, 0])
+relax2 = test_relfig.add_subplot(relgs1[3, 0], sharex=relax1)
+ULC_C_BS.visualise_performance(plot="reliability", axes=(relax1, relax2))
+relax1.tick_params(axis="both", which="major", top=True, right=True,
+                    direction="inout")
+relax2.tick_params(axis="both", which="major", top=True, right=True,
+                    direction="inout")
+# plt.savefig(WD_TO_SAVE+"testrel.jpg", dpi=300, bbox_inches="tight")
+plt.show()
+
+# ---------------------------------------------------------------------------
+# ROC PLOTS.
+
+# Reformat auc arrays in order to print out values on ROC plots.
+auc_vals = np.zeros((5,4))
+auc_errs = np.zeros((5,4))
+
+# C models AUC values and erros
+auc_vals[:,:2] = np.reshape(roc_list_C, (5,2))
+auc_errs[:,:2] = np.reshape(roc_err_list_C, (5,2))
+
+# M models AUC values and erros
+auc_vals[:,2:] = np.reshape(roc_list_M, (5,2))
+auc_errs[:,2:] = np.reshape(roc_err_list_M, (5,2))
+
+roc_fig, roc_axs = plt.subplots(5,4, figsize=(9,10),
+                                gridspec_kw={"wspace":0.05,"hspace":0.05})
+
+for i, model in enumerate(layout.flatten()):
+    model.visualise_performance(plot="ROC", ax=roc_axs.flatten()[i],
+                                display_auc=False)
+
+
+# Hide inner x and y labels, adjust ticks.
+for i, ax in enumerate(roc_axs.flatten()):
+    ax.text(0.98, 0.03,r"AUC = $\mathdefault{%.2f \pm %.2f}$" %(auc_vals.flatten()[i],
+                                                          auc_errs.flatten()[i]),
+            horizontalalignment="right",
+            verticalalignment="bottom",
+            transform = ax.transAxes)
+    ax.label_outer()
+    ax.tick_params(direction="inout", which="both", top=True, right=True)
+    ax.xaxis.set_minor_locator(mticker.MultipleLocator(0.1))
+    ax.yaxis.set_minor_locator(mticker.MultipleLocator(0.1))
+
+roc_axs.flatten()[0].text(1.05, 1.1, "C+",
+                          ha="center", va="center",
+                          transform=roc_axs.flatten()[0].transAxes)
+
+roc_axs.flatten()[2].text(1.05, 1.1, "M+",
+                          ha="center", va="center",
+                          transform=roc_axs.flatten()[2].transAxes)
+
+# plt.savefig(WD_TO_SAVE+"ROC.jpg", dpi=300, bbox_inches="tight")
 plt.show()
 
 # =====================================================================
 # PLOT WEIGHTS.
 
-no_colours = len(unconstrained_M_brier.weights)  # Number of colours.
+no_colours = len(ULC_M_BS.weights)  # Number of colours.
 
 # Range of indices 0 to number of weights, to be shuffled.
 ran_cols = np.linspace(0, no_colours-1, no_colours, dtype=int)
@@ -707,23 +909,41 @@ np.random.shuffle(ran_cols)  # Shuffle indices.
 # no_colours colours. This will ensure good colour scheme.
 cmap = plt.cm.get_cmap("twilight", no_colours)
 
-# Create array to store all the weights.
-# Appending 0 to all but the unconstrained weights to ensure that
-# bars of the same model are directly below each other.
-# Since climatology used in ULC, that means there is one more weight
-# than the CLC or performance history weighting scheme.
-all_weights = np.array((np.append(history_C.weights, 0),
-                    np.append(history_M.weights, 0),
-                    np.append(constrained_C_brier.weights, 0),
-                    np.append(constrained_M_brier.weights, 0),
-                    unconstrained_C_brier.weights,
-                    unconstrained_M_brier.weights),
-                    dtype=object)
+# Empty arrays to store weights and their standard deviations.
+weights = np.empty_like(layout)
+weight_stds = np.empty_like(layout)
+
+for i in range(len(weights)):
+    for j in range(len(weights[0])):
+        current_model = layout[i][j]
+        if current_model.desired_weighting == "ULC":
+            ws = current_model.weights
+        else:
+            # Need to account for fact that all but ULC models dont
+            # include climatology in final prediction, so add a 0 to
+            # the weights array. This will ensure neat layout in the
+            # figure.
+            ws = np.append(current_model.weights,0)
+        if i == 0:
+            # Since average and EV schemes dont provide sdevs, set
+            # to none. This is dealt with in the plotting function/
+            weight_stds[i][j] = None
+        else:
+            # Sdev of weight distribution.
+            weight_std = np.std(current_model.ac_weights, axis=0)
+
+            if current_model.desired_weighting != "ULC":
+                # Again, account for models that dont use climatology.
+                weight_std = np.append(weight_std, 0)
+
+            weight_stds[i][j] = weight_std
+
+        weights[i][j] = ws
 
 # Width of each individual bar.
-width = (W/float(len(all_weights[0]) - 1))
+width = (W/float(len(weights[0][0]) - 1))
 
-def plot_weights(weights, axis, return_bar=False):
+def plot_weights(weights, axis, yerr=None, return_bar=False):
     """Plot each weight on ax. Will return list of bar artists if
     return_bar is True, which will be used for legend.
 
@@ -733,6 +953,8 @@ def plot_weights(weights, axis, return_bar=False):
         Weights of model.
     axis : matplotlib axis
         Axis to plot the weights.
+    yerr : np.array
+        Standard deviations of weights. The default is None.
     return_bar : bool, optional
         Whether or not to return the bar artists. The default is False.
 
@@ -743,16 +965,26 @@ def plot_weights(weights, axis, return_bar=False):
 
     """
     # Set y limits of axis, uses all_weights from global scope.
-    axis.set_ylim(all_weights.flatten().min()-0.1, 1)
+    axis.set_ylim(weights.flatten().min()-0.1, 1)
 
     bar_artists = []  # List to store bar artists.
 
     for i in range(len(weights)):
-        # Oosition of the bar.
+        # Position of the bar.
         pos = 1 - (W/2.0) + i*(W/float(len(weights) - 1))
-
+        # print(ran_cols[i])
         # Plot the bar.
-        axis.bar(pos, weights[i], width=width, align="center",
+        # print(i, ran_cols[i])
+        if yerr is not None:
+            axis.bar(pos, weights[i], width=width, align="center",
+                      linewidth=0.5, edgecolor="black", yerr=yerr[i],
+                      color=cmap(ran_cols[i]), error_kw={"elinewidth":0.2,
+                                                          "capsize":1.5,
+                                                          "capthick":0.2,
+                                                          "alpha":0.8})
+
+        else:
+            axis.bar(pos, weights[i], width=width, align="center",
                   linewidth=0.5, edgecolor="black",
                   color=cmap(ran_cols[i]))
         if return_bar:
@@ -761,64 +993,81 @@ def plot_weights(weights, axis, return_bar=False):
             patch = mpatches.Patch(color=cmap(ran_cols[i]),
                                     ec="black", lw=0.5)
             bar_artists.append(patch)  # Append patch to list.
-
+    # print("\n\n")
     if return_bar:
         return bar_artists
 
-# ylables for each plot.
-labels = ["History", "Constrained", "Unconstrained"]
+weight_fig = plt.figure(figsize=(10,12))
 
-# Create figure and subplots.
-weight_fig, axes = plt.subplots(3, 2, figsize=(9,9),
-                                sharex="all",
-                                gridspec_kw={"wspace":0.05,
-                                              "hspace":0.1})
+weight_gs = weight_fig.add_gridspec(5, 4, wspace=0.25)
 
-# Loop through each axis. Use .flatten() since axes is array shape
-# (nrows, ncols).
-for i, axis in enumerate(axes.flatten()):
-    axis.set_xticks([]) # Clear xticks, since x axis provides no info.
-    axis.label_outer() # Remove yticks from inner plots.
-    plot_weights(all_weights[i], axis) # Plot the weights.
+# Plot weights of each model.
+for i in range(len(layout)):
+    for j in range(len(layout[i])):
 
-    if i == len(axes.flatten())-1:
-        # Return artists of ULC M1+, includes climatology.
-        bar = plot_weights(all_weights[i], axis, return_bar=True)
+        # Create axes for each plot.
+        ax = weight_fig.add_subplot(weight_gs[i, j])
 
-    # x limits, also for plotting horizontal axis.
-    X_MIN = 1 - (W/2.0) - 0.05
-    X_MAX = 1 + (W/2.0) + 0.05
+        # Clear xticks, since x axis provides no info.
+        ax.set_xticks([])
 
-    axis.plot([X_MIN, X_MAX], [0, 0], "k-", lw=0.9)
-    axis.set_xlim(X_MIN, X_MAX)
+        # Plot the weights.
+        plot_weights(weights[i][j], ax, yerr=weight_stds[i][j])
 
-    # Set titles.
-    if i == 0:
-        axis.set_title("C1+")
-    if i == 1:
-        axis.set_title("M1+")
+        if i == len(layout)-1 and j == len(layout[0])-1:
+            # Return artists of ULC M1+, includes climatology.
+            bar = plot_weights(weights[i][j], ax, weight_stds[i][j],
+                                return_bar=True)
 
-    # Set y labels.
-    if i % 2 == 0:
-        axis.set_ylabel(labels[i//2])
+        # x limits, also for plotting horizontal axis.
+        X_MIN = 1 - (W/2.0) - 0.05
+        X_MAX = 1 + (W/2.0) + 0.05
 
-    # Adjust y limits for performance history weighting scheme, since
-    # values are so small.
-    if i < 2:
-        axis.set_ylim(0.-0.1, 0.27)
-        axis.yaxis.set_minor_locator(mticker.MultipleLocator(0.05))
-        axis.yaxis.set_major_locator(mticker.MultipleLocator(0.25))
-        axis.grid(which="minor", axis="y", ls=":", lw = 0.5)
-    # Plot horizontal grid for visual aid.
-    axis.grid(which="major", axis="y", ls="--", lw = 0.9)
-    # Include ticks on right hand side.
-    axis.tick_params(right=True, which="both", direction="inout")
+        ax.plot([X_MIN, X_MAX], [0, 0], "k-", lw=0.9)
+        ax.set_xlim(X_MIN, X_MAX)
 
-# Place legend on performance history M1+ axis including the
-# climatology.
-axes.flatten()[1].legend(handles=bar,
-                          labels=list(unconstrained_M_brier.df_of_models),
-                          bbox_to_anchor=(1, 1.035),frameon=False, )
+        current_model = layout[i][j]
 
-# plt.savefig("weights.jpg", dpi=300, bbox_inches="tight")
+        if (current_model.desired_weighting == "Average" or
+            current_model.desired_weighting == "EV"):
+            axis_text = current_model.desired_weighting
+        else:
+            axis_text = "{}, {}".format(current_model.desired_weighting,
+                                        current_model.desired_metric)
+
+        ax.text(0.0, 1.02, axis_text, va="bottom", ha="left",
+                transform=ax.transAxes)
+
+        ax.yaxis.set_major_locator(mticker.MultipleLocator(0.5))
+        ax.yaxis.set_minor_locator(mticker.MultipleLocator(0.25))
+        ax.tick_params(which="both", length=4)
+
+        # Plot horizontal grid for visual aid.
+        ax.grid(which="both", axis="y", ls="--", lw = 0.9)
+
+        # Include ticks on right hand side.
+        ax.tick_params(right=True, which="both", direction="inout")
+
+
+        if i == 0:
+            ax.set_ylim(0.-0.1, 0.27)
+            ax.yaxis.set_minor_locator(mticker.MultipleLocator(0.05))
+            ax.yaxis.set_major_locator(mticker.MultipleLocator(0.25))
+            ax.grid(which="minor", axis="y", ls=":", lw = 0.5)
+            ax.tick_params(which="minor", length=2)
+
+all_axes = weight_fig.get_axes()
+all_axes[0].text(1.02, 1.15, "C+",
+                transform = all_axes[0].transAxes)
+all_axes[2].text(1.02, 1.15, "M+",
+                transform = all_axes[2].transAxes)
+all_axes[3].legend(handles=bar,
+                    labels=list(ULC_M_BS.df_of_models),
+                    bbox_to_anchor=(1, 1.09),frameon=False)
+all_axes[8].set_ylabel("Weight value", size="x-large")
+
+# plt.savefig(WD_TO_SAVE+"weights.jpg", dpi=300, bbox_inches="tight")
 plt.show()
+
+done = time.time() - now
+print("Entire process done in %.3f seconds, or %.3f minutes" % (done, done/60.0))
