@@ -354,13 +354,13 @@ class Ensemble:
         # Sum up (predictions of each model) x (weights) for each day
         # to obtain ensemble prediction.
         ensemble_prediction = np.sum(weights * self.df_of_models.values, axis=1)
-
+        
         return ensemble_prediction, weights, None
 
     def _linear_combo(self, constrained=True):
         """Perform linear combination to determine weights.
 
-        Value of "constrained" determines weither the combination is
+        Value of "constrained" determines whether the combination is
         constrained ("constrained" = True) or unconstrained
         ("constrained" = False).
 
@@ -368,7 +368,7 @@ class Ensemble:
         ----------
         constrained : `bool`. The default is True.
             Whether the linear combination is constrained (True) or
-            unconstrained (False)
+            unconstrained (False).
 
         Returns
         -------
@@ -386,7 +386,7 @@ class Ensemble:
             - initial weights take value [-1,1] for unconstrained case.
             - Solver executed 500 times, results in distribution that
                 is normal in shape, mean value used as final optimised
-                weight, with std dev used as 10% error
+                weight, with std dev used as 10% error.
 
         """
         def _metric_funct(en_forecast_to_optimise):
@@ -539,7 +539,7 @@ class Ensemble:
             bounds = np.full((number_of_models,2), (0,1))
 
             # Set up array of zeros that will store the optimised
-            # weights from each repitition..
+            # weights from each repitition.
             accumulated_weights = np.zeros(
                 (REPITITIONS, number_of_models)
                 )
@@ -576,7 +576,7 @@ class Ensemble:
         for i in range(REPITITIONS):
 
             if constrained is True:
-                # Initial weights, random values between 0 and 1
+                # Initial weights, random values between 0 and 1.
                 initial_weights = np.random.rand(number_of_models)
 
             else:
@@ -610,7 +610,7 @@ class Ensemble:
             axis=1
         )
 
-        # map any negative values to 0
+        # map any negative values to 0.
         ensemble_prediction[ensemble_prediction < 0] = 0
 
         # Map any values > 1 to 1.
@@ -654,11 +654,11 @@ class Ensemble:
         Returns
         -------
         Plots the desired diagram.
-        ax : ~`matplotlib axes` if plot=="ROC"
+        ax : ~`matplotlib axes` if plot=="ROC".
 
-        ax1, ax2 : ~`matplotlib axes` if plot=="reliability"
+        ax1, ax2 : ~`matplotlib axes` if plot=="reliability".
 
-        rel_ax, hist_ax, roc_ax : ~`matplotlib axes` if plot=="both"
+        rel_ax, hist_ax, roc_ax : ~`matplotlib axes` if plot=="both".
 
         """
         valid_plots = ["reliability", "ROC", "both"]
