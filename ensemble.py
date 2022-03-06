@@ -337,7 +337,7 @@ class Ensemble:
         # Loop through each model, calculate weights.
         for i in self._models_with_forecasts:
             # Get the forecast of the model.
-            forecast_vals = self.df_of_models.loc[:, i].values
+            forecast_vals = self.df_of_models.iloc[:, i].values
 
             # Calculate RSS for each event.
             rss = np.sum((forecast_vals-self.events)**2)
