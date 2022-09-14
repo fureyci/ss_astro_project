@@ -31,7 +31,7 @@ Final updates on each file. Changed some of the names for the different weightin
 
 * `metric_utils.py` obtained from https://github.com/hayesla/flare_forecast_proj/blob/main/forecast_tests/metric_utils.py
 
-![Reliability Diagrams for each ensemble](https://user-images.githubusercontent.com/83065792/190096213-1cc2d886-6239-48d3-9e4b-526394fa96ed.jpg)
+![Reliability Diagrams for each ensemble](https://user-images.githubusercontent.com/83065792/190096213-1cc2d886-6239-48d3-9e4b-526394fa96ed.jpg 250x250)
 
 ![ROC curves for each ensemble](https://user-images.githubusercontent.com/83065792/190096235-b7aeaf59-4242-4c82-8b2c-f2cc692dff4f.jpg)
 
