@@ -8,7 +8,25 @@ This repository will store any code/files that I use throughout the course of my
 
 My goal is to build an ensemble model in python in order to provide more accurate forecasts of solar flares. This will consist of many individual models, namely, those referenced in [this paper](https://iopscience.iop.org/article/10.3847/1538-4365/ab2e12/pdf) (Leka et al., 2019). 
 
-As of now, I have been getting used to the type of data I will be working with. This consists of the forecasts of M- and C-class solar flares provided by different models between 1/1/2016 and 31/12/2017, and was accessed [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/HYP74O) (Leka and Park, 2019). 
+As of now, I have been getting used to the type of data I will be working with. This consists of the forecasts of M- and C-class solar flares provided by different models between 1 January 2016 to 31 December 2017, and were accessed [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/HYP74O) (Leka and Park, 2019). 
+
+### Repository Structure
+This repository contains the python scripts developed over the course of this project. However, most are designed not be run, and are simply used in other files in the directory.
+
+* The main model has been implemented in `ensemble.py`.
+
+* To see how the ensemble model works, run `ens_test.py`. This script was used to generate all plots for my thesis, a sample of which can be seen below. 
+
+* The script `realtime_test.py` can be run to see today’s ensemble solar flare forecast, however, this relies heavily on the number of models available on the Flare Scoreboard. This script was also used to create the rolling RPSS plots for my thesis.
+
+* The script `opening_realtime.py` contains the functions that are used to fetch and clean real time data.
+
+* The script `opening_data.py` contains the functions that are used to open the archival forecasts and events as used in the benchmark by Leka et al. 2019.
+
+* The script `metric_utils.py` was developed by `@hayesla` and contains the functions that calculate the different verification metrics.
+
+* The repository `CSV` contains the forecasts and event lists over the period 1 January 2016 to 31 December 2017.
+
 
 ##### 29/09/2021 Update
 Upon further reading of Leka et al., 2019, I found out that when calculating the fraction of positives for the reliability curves, Laplace's rule of succession is used (Wheatland, 2005). This has been implemented in `metric_utils.py` by updating the function `plot_reliability_curve()`. Now that any model can be compared to the benchmark, the next goal is to update `ensemble.py`. 
