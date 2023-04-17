@@ -8,7 +8,7 @@ This repository will store any code/files that I use throughout the course of my
 
 My goal is to build an ensemble model in python in order to provide more accurate forecasts of solar flares. This will consist of many individual models, namely, those referenced in [this paper](https://iopscience.iop.org/article/10.3847/1538-4365/ab2e12/pdf) (Leka et al., 2019). 
 
-As of now, I have been getting used to the type of data I will be working with. This consists of the forecasts of M- and C-class solar flares provided by different models between 1 January 2016 to 31 December 2017, and were accessed [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/HYP74O) (Leka and Park, 2019). 
+As of now (September 2021), I have been getting used to the type of data I will be working with. This consists of the forecasts of M- and C-class solar flares provided by different models between 1 January 2016 to 31 December 2017, and were accessed [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/HYP74O) (Leka and Park, 2019). 
 
 ### Repository Structure
 This repository contains the python scripts developed over the course of this project. However, most are designed not be run, and are simply used in other files in the directory.
